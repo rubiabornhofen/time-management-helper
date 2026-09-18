@@ -98,7 +98,7 @@
                 <!-- Usuário da Ação -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-user" class="text-xs font-medium text-google-subtext">Usuário da Ação *</label>
-                    <input type="text" id="filter-user" placeholder="Ex: alice.silva" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all placeholder:text-google-subtext/40">
+                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all placeholder:text-google-subtext/40">
                 </div>
 
                 <div class="flex flex-col gap-1.5">
@@ -382,138 +382,164 @@
                         headers['Authorization'] = `token ${runtimeState.apiKey}`;
                     }
 
-                    // 1. Busca os pull requests mais recentes do repositório
-                    const response = await fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=100&sort=updated&direction=desc`, {
-                        headers
-                    });
+                    const cleanUser = targetUser.replace(/^@/, '').trim().toLowerCase();
+                    const simplifiedUser = cleanUser.replace(/[-_.]/g, '');
 
-                    if (!response.ok) {
-                        let errorMsg = `Status HTTP: ${response.status} (${response.statusText})`;
-                        try {
-                            const errBody = await response.json();
-                            if (errBody && errBody.message) {
-                                errorMsg += ` - ${errBody.message}`;
-                            }
-                        } catch (e) { /* ignore */ }
+                    // 1. Busca PRs onde o usuário foi revisor ou esteve diretamente envolvido
+                    const searchPromises = [
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
+                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=50&sort=updated&direction=desc`, { headers }).catch(() => null)
+                    ];
 
-                        if (response.status === 401) {
+                    const responses = await Promise.all(searchPromises);
+                    const pullsMap = new Map();
+
+                    for (const resp of responses) {
+                        if (resp && resp.ok) {
+                            const data = await resp.json();
+                            const items = Array.isArray(data) ? data : (data.items || []);
+                            items.forEach(item => {
+                                if (item && item.number && !pullsMap.has(item.number)) {
+                                    pullsMap.set(item.number, item);
+                                }
+                            });
+                        } else if (resp && resp.status === 401) {
                             showErrorBanner(
                                 'Token inválido ou expirado (401 Unauthorized)',
-                                'O token configurado foi recusado pelo GitHub. Clique em <strong>Configurar API</strong> no topo e informe um Personal Access Token válido.'
+                                'O token configurado foi recusado pelo GitHub. Clique em <strong>Configurar API</strong> no topo e informe um token válido.'
                             );
-                        } else if (response.status === 403) {
-                            if (errorMsg.toLowerCase().includes('rate limit')) {
-                                showErrorBanner(
-                                    'Limite de requisições excedido (403 Rate Limit)',
-                                    'O limite gratuito sem autenticação (60 req/h) foi atingido. Clique em <strong>Configurar API</strong> e insira um token com permissão de leitura para aumentar o limite para 5.000 req/h.'
-                                );
-                            } else {
-                                showErrorBanner(
-                                    'Acesso proibido ou restrição de SSO (403 Forbidden)',
-                                    'O token não possui permissão para acessar este repositório ou a organização exige autorização SAML/SSO no token (botão <em>Configure SSO</em> no GitHub).'
-                                );
-                            }
-                        } else if (response.status === 404) {
+                            return [];
+                        } else if (resp && resp.status === 403) {
+                            showErrorBanner(
+                                'Limite da API ou autorização necessária (403 Forbidden)',
+                                'O limite de requisições foi atingido ou este repositório exige token com autorização SSO. Configure um Personal Access Token no topo.'
+                            );
+                            return [];
+                        } else if (resp && resp.status === 404) {
                             showErrorBanner(
                                 'Repositório não encontrado (404 Not Found)',
-                                `O repositório <strong>${repoQuery}</strong> não foi encontrado. Se for um repositório <strong>privado</strong>, é obrigatório cadastrar um Token de Acesso em <strong>Configurar API</strong> com a permissão <code>repo</code> ou <code>pull requests: read</code>.`
+                                `O repositório <strong>${repoQuery}</strong> não foi encontrado ou é privado. Configure um token com permissão de leitura.`
                             );
-                        } else {
-                            showErrorBanner('Erro na consulta da API', errorMsg);
+                            return [];
                         }
-                        return [];
                     }
 
-                    let pulls = await response.json();
-                    auditDiagnostics.totalFetched = pulls.length;
+                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 35);
+                    auditDiagnostics.totalFetched = candidatePRs.length;
 
-                    // Coleta usuários detectados para auxiliar no diagnóstico
-                    const userSet = new Set();
-                    pulls.forEach(pr => {
-                        if (pr.user && pr.user.login) userSet.add(pr.user.login);
-                        if (pr.assignee && pr.assignee.login) userSet.add(pr.assignee.login);
-                        if (pr.assignees) pr.assignees.forEach(a => a.login && userSet.add(a.login));
-                    });
+                    // 2. Para cada PR candidato, consulta detalhes específicos (merged_by e reviews)
+                    const enrichedList = await Promise.all(candidatePRs.map(async (pr) => {
+                        const prNumber = pr.number;
+                        let fullPR = null;
+                        let reviews = [];
 
-                    // 2. Se o usuário procurado não estiver no primeiro lote de 100 PRs, busca via Search API
-                    const cleanUser = targetUser.replace(/^@/, '').trim().toLowerCase();
-                    const hasUserInBatch = Array.from(userSet).some(u => u.toLowerCase().includes(cleanUser));
-
-                    if (!hasUserInBatch && cleanUser.length > 1) {
                         try {
-                            const searchResp = await fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}&per_page=30`, {
-                                headers
-                            });
-                            if (searchResp.ok) {
-                                const searchData = await searchResp.json();
-                                if (searchData.items && searchData.items.length > 0) {
-                                    // Mescla os PRs encontrados que não estão no lote inicial
-                                    const existingIds = new Set(pulls.map(p => p.number));
-                                    searchData.items.forEach(item => {
-                                        if (!existingIds.has(item.number)) {
-                                            pulls.push(item);
-                                            if (item.user && item.user.login) userSet.add(item.user.login);
-                                        }
-                                    });
-                                    auditDiagnostics.totalFetched = pulls.length;
-                                }
-                            }
-                        } catch (e) {
-                            // Pesquisa fallback silenciosa
-                        }
-                    }
+                            const [fullPrResp, reviewsResp] = await Promise.all([
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}`, { headers }).catch(() => null),
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=30`, { headers }).catch(() => null)
+                            ]);
 
-                    auditDiagnostics.recentUsers = Array.from(userSet).slice(0, 8);
+                            if (fullPrResp && fullPrResp.ok) fullPR = await fullPrResp.json();
+                            if (reviewsResp && reviewsResp.ok) reviews = await reviewsResp.json();
+                        } catch (e) { /* fallback suave se rate limit individual falhar */ }
 
-                    // 3. Mapeia e enriquece os itens com status e ação
-                    return pulls.map(pr => {
-                        const adMatch = pr.title.match(/AD[-_\s]?\d+/i);
+                        const basePR = fullPR || pr;
+                        const adMatch = basePR.title ? basePR.title.match(/AD[-_\s]?\d+/i) : null;
                         const ad = adMatch ? adMatch[0].toUpperCase().replace(/\s+/, '-') : 'N/A';
 
-                        let status = pr.state || 'open';
-                        let actionUser = pr.user ? pr.user.login : 'unknown';
-                        let actionTimestamp = pr.created_at;
+                        // Identifica quem mesclou
+                        const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
 
-                        // Se o PR foi mesclado ou fechado
-                        if (pr.merged_at) {
-                            status = 'merged';
-                            actionTimestamp = pr.merged_at;
-                            actionUser = pr.merged_by ? pr.merged_by.login : actionUser;
-                        } else if (pr.closed_at) {
-                            status = 'closed';
-                            actionTimestamp = pr.closed_at;
-                        } else if (pr.state === 'open') {
-                            // Para PR aberto, a ação mais recente foi sua atualização/abertura
-                            actionTimestamp = pr.updated_at || pr.created_at;
+                        // Identifica reviews feitas pelo targetUser
+                        let userReview = null;
+                        if (Array.isArray(reviews)) {
+                            userReview = reviews.slice().reverse().find(r => {
+                                const revLogin = (r.user && r.user.login) ? r.user.login.toLowerCase() : '';
+                                const simpRev = revLogin.replace(/[-_.]/g, '');
+                                return revLogin.includes(cleanUser) || cleanUser.includes(revLogin) || simpRev.includes(simplifiedUser);
+                            });
                         }
 
-                        // Lista todos os usuários envolvidos na ação para matching flexível
+                        // Determina se o targetUser fez o merge
+                        const userDidMerge = mergedByUser && (
+                            mergedByUser.toLowerCase().includes(cleanUser) ||
+                            cleanUser.includes(mergedByUser.toLowerCase()) ||
+                            mergedByUser.toLowerCase().replace(/[-_.]/g, '').includes(simplifiedUser)
+                        );
+
+                        // Determina a ação auditada, o usuário da ação e o timestamp
+                        let actionUser = basePR.user ? basePR.user.login : 'unknown';
+                        let actionTimestamp = basePR.created_at;
+                        let actionType = 'open';
+                        let status = basePR.state || 'open';
+
+                        if (basePR.merged_at) {
+                            status = 'merged';
+                        } else if (basePR.closed_at) {
+                            status = 'closed';
+                        }
+
+                        // Se o usuário procurado fez merge
+                        if (userDidMerge) {
+                            actionUser = mergedByUser;
+                            actionTimestamp = basePR.merged_at || basePR.updated_at;
+                            actionType = 'merged';
+                            status = 'merged';
+                        }
+                        // Se o usuário procurado fez review
+                        else if (userReview) {
+                            actionUser = userReview.user.login;
+                            actionTimestamp = userReview.submitted_at || basePR.updated_at;
+                            actionType = 'reviewed';
+                            if (status !== 'merged') {
+                                status = 'reviewed';
+                            }
+                        }
+                        // Se não foi merge nem review mas foi fechado/mesclado por outro
+                        else if (basePR.merged_at && mergedByUser) {
+                            actionUser = mergedByUser;
+                            actionTimestamp = basePR.merged_at;
+                        }
+
+                        // Usuários associados para cruzamento
                         const associatedUsers = [
                             actionUser,
-                            pr.user ? pr.user.login : null,
-                            pr.merged_by ? pr.merged_by.login : null,
-                            pr.assignee ? pr.assignee.login : null
+                            mergedByUser,
+                            userReview ? userReview.user.login : null,
+                            basePR.user ? basePR.user.login : null
                         ].filter(Boolean);
 
-                        if (pr.assignees && Array.isArray(pr.assignees)) {
-                            pr.assignees.forEach(a => a.login && associatedUsers.push(a.login));
+                        if (Array.isArray(reviews)) {
+                            reviews.forEach(r => r.user && r.user.login && associatedUsers.push(r.user.login));
+                        }
+
+                        let detailText = '';
+                        if (userDidMerge) {
+                            detailText = `O usuário ${actionUser} realizou o MERGE deste PR na branch de destino em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
+                        } else if (userReview) {
+                            const reviewState = userReview.state === 'APPROVED' ? 'APROVAÇÃO' : userReview.state;
+                            detailText = `O usuário ${actionUser} realizou a REVISÃO (${reviewState}) deste PR em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
+                        } else {
+                            detailText = `Ação registrada no PR #${basePR.number} (${repoQuery}) por ${actionUser}. Atualizado em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
                         }
 
                         return {
-                            id: pr.number,
-                            title: pr.title,
+                            id: basePR.number,
+                            title: basePR.title || `PR #${basePR.number}`,
                             ad: ad,
                             repo: repoQuery,
                             actionUser: actionUser,
                             associatedUsers: associatedUsers,
                             status: status,
                             actionTimestamp: actionTimestamp,
-                            updatedAt: pr.updated_at,
-                            details: `Ação registrada no PR #${pr.number} (${repoQuery}). Responsável principal: ${actionUser}. Atualizado em: ${new Date(pr.updated_at || actionTimestamp).toLocaleString('pt-BR')}.`
+                            details: detailText
                         };
-                    });
+                    }));
+
+                    return enrichedList;
                 } catch (err) {
-                    showErrorBanner('Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}. Verifique sua conexão.`);
+                    showErrorBanner('Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
                     return [];
                 } finally {
                     loadingSpinner.classList.add('hidden');
