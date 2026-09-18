@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Favicon embutido em Data URI para evitar erro 404 no GitHub Pages -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%2232%22%20height=%2232%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
     <title>Auditoria de Pull Requests</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -28,6 +31,7 @@
             }
         }
     </script>
+    <!-- Fonts e Ícones CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -38,7 +42,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-google-bg text-google-text">
+<body class="min-h-screen flex flex-col bg-google-bg text-google-text antialiased selection:bg-google-primary/30">
 
     <header class="bg-google-surface border-b border-google-border sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -46,7 +50,7 @@
                 <div class="p-2 bg-google-primary/10 rounded-lg text-google-primary">
                     <i data-lucide="shield-check" class="w-6 h-6"></i>
                 </div>
-                <h1 class="text-lg sm:text-xl font-semibold tracking-tight text-white">PR Audit & Trace</h1>
+                <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">PR Audit & Trace</h1>
             </div>
             <div class="flex items-center space-x-2">
                 <button id="open-api-modal" class="flex items-center space-x-2 px-3 py-2 text-sm bg-google-surfaceHover hover:bg-google-border/50 text-google-text rounded-lg border border-google-border transition-colors">
@@ -74,7 +78,7 @@
                 <!-- Repositório -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-repo" class="text-xs font-medium text-google-subtext">Repositório *</label>
-                    <input type="text" id="filter-repo" placeholder="Ex: auth-service" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all placeholder:text-google-subtext/40">
+                    <input type="text" id="filter-repo" placeholder="Ex: org/repo ou auth-service" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all placeholder:text-google-subtext/40">
                 </div>
 
                 <!-- Usuário da Ação -->
@@ -85,7 +89,7 @@
 
                 <!-- Período Preset -->
                 <div class="flex flex-col gap-1.5">
-                    <label class="text-xs font-medium text-google-subtext">Período (Preset) *</label>
+                    <label class="text-xs font-medium text-google-subtext">Período *</label>
                     <select id="filter-period" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all">
                         <option value="7" selected>Últimos 7 dias</option>
                         <option value="15">Últimos 15 dias</option>
@@ -106,13 +110,19 @@
             </div>
         </div>
 
-        <div class="bg-google-surface border border-google-border rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col">
-            <div class="p-4 sm:p-6 border-b border-google-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="bg-google-surface border border-google-border rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col min-h-[360px]">
+            <div class="p-4 sm:p-6 border-b border-google-border flex items-center justify-between gap-4">
                 <h3 class="text-base font-medium text-white flex items-center gap-2">
                     <i data-lucide="list" class="w-4 h-4 text-google-primary"></i>
                     Resultados da Auditoria
                 </h3>
-                <span id="result-count" class="text-xs bg-google-surfaceHover px-2.5 py-1 rounded-full text-google-subtext border border-google-border">0 registros</span>
+                <div class="flex items-center gap-2">
+                    <span id="loading-spinner" class="hidden text-xs text-google-primary flex items-center gap-1.5">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                        <span>Buscando...</span>
+                    </span>
+                    <span id="result-count" class="text-xs bg-google-surfaceHover px-2.5 py-1 rounded-full text-google-subtext border border-google-border">0 registros</span>
+                </div>
             </div>
 
             <!-- Empty / Locked State -->
@@ -120,13 +130,13 @@
                 <div class="w-12 h-12 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-subtext mb-3 border border-google-border">
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
-                <h4 class="text-sm font-medium text-white mb-1">Preencha todos os filtros obrigatórios para exibir os resultados</h4>
-                <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período devem estar selecionados para efetuar a busca.</p>
+                <h4 class="text-sm font-medium text-white mb-1">Preencha todos os campos obrigatórios</h4>
+                <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período para exibir a auditoria.</p>
             </div>
 
-            <!-- Table Container (Hidden by default until all filters match) -->
+            <!-- Table Container -->
             <div id="table-container" class="hidden overflow-x-auto flex-1">
-                <table class="w-full text-left border-collapse">
+                <table class="w-full text-left border-collapse min-w-[650px]">
                     <thead>
                         <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
                             <th class="p-4">PULL REQUEST</th>
@@ -137,7 +147,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-body" class="divide-y divide-google-border text-sm">
-                        <!-- Dynamic rows populated via JS -->
+                        <!-- Linhas preenchidas dinamicamente via JS -->
                     </tbody>
                 </table>
             </div>
@@ -146,7 +156,7 @@
     </main>
 
     <div id="api-modal" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-google-surface border border-google-border rounded-xl max-w-md w-full p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+        <div class="bg-google-surface border border-google-border rounded-xl max-w-md w-full p-6 shadow-xl flex flex-col gap-4">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-medium text-white flex items-center gap-2">
                     <i data-lucide="key" class="w-5 h-5 text-google-primary"></i>
@@ -156,23 +166,24 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <p class="text-xs text-google-subtext">Insira suas credenciais abaixo. Os dados são mantidos estritamente em tempo de execução (RAM) e descartados ao fechar a página.</p>
             
             <div class="flex flex-col gap-3">
                 <div class="flex flex-col gap-1.5">
-                    <label class="text-xs font-medium text-google-subtext">Token de Acesso / Chave API</label>
+                    <label class="text-xs font-medium text-google-subtext">Token GitHub (Personal Access Token / PAT)</label>
                     <input type="password" id="api-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none">
+                    <span class="text-[11px] text-google-subtext/70">Opcional para repositórios públicos. Necessário para repositórios privados ou aumento do limite de requisições.</span>
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-2 mt-2">
                 <button id="save-api-modal" class="px-4 py-2 bg-google-primary hover:bg-google-primaryHover text-google-bg font-medium text-sm rounded-lg transition-colors">
-                    Salvar na Memória
+                    Salvar
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Modal de Detalhes -->
     <div id="details-modal" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
         <div class="bg-google-surface border border-google-border rounded-xl max-w-lg w-full p-6 shadow-xl flex flex-col gap-4">
             <div class="flex items-center justify-between">
@@ -185,13 +196,13 @@
                 </button>
             </div>
             <div id="details-content" class="text-sm text-google-text flex flex-col gap-3">
-                <!-- Dynamically filled -->
+                <!-- Preenchido dinamicamente -->
             </div>
         </div>
     </div>
 
     <script>
-        // Runtime in-memory store (volatile)
+        // Estado em memória (RAM apenas)
         const runtimeState = {
             apiKey: '',
             filters: {
@@ -199,10 +210,11 @@
                 user: '',
                 period: '7',
                 sort: 'id-desc'
-            }
+            },
+            currentData: []
         };
 
-        // Mock Database of PR Audit logs with AD inside titles and action metadata
+        // Dados de demonstração locais
         const mockDatabase = [
             {
                 id: 1042,
@@ -211,9 +223,8 @@
                 repo: "auth-service",
                 actionUser: "alice.silva",
                 status: "merged",
-                actionTimestamp: new Date(Date.now() - 2 * 86400000).toISOString(), // 2 days ago
-                author: "carlos.dev",
-                details: "O usuário alice.silva aprovou e realizou o merge do PR #1042 correspondente à demanda AD-4891 na branch main."
+                actionTimestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
+                details: "O usuário alice.silva realizou o merge do PR #1042 correspondente à demanda AD-4891 na branch main."
             },
             {
                 id: 1041,
@@ -222,8 +233,7 @@
                 repo: "api-gateway",
                 actionUser: "bruno.souza",
                 status: "open",
-                actionTimestamp: new Date(Date.now() - 5 * 86400000).toISOString(), // 5 days ago
-                author: "julia.eng",
+                actionTimestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
                 details: "O usuário bruno.souza abriu o PR #1041 para otimização de pool de conexões (AD-4850)."
             },
             {
@@ -233,8 +243,7 @@
                 repo: "payment-engine",
                 actionUser: "carla.mendes",
                 status: "reviewed",
-                actionTimestamp: new Date(Date.now() - 12 * 86400000).toISOString(), // 12 days ago
-                author: "marcos.dev",
+                actionTimestamp: new Date(Date.now() - 12 * 86400000).toISOString(),
                 details: "O usuário carla.mendes completou a revisão técnica do código para a tarefa AD-4720."
             },
             {
@@ -244,8 +253,7 @@
                 repo: "frontend-core",
                 actionUser: "daniel.lima",
                 status: "closed",
-                actionTimestamp: new Date(Date.now() - 25 * 86400000).toISOString(), // 25 days ago
-                author: "beatriz.ui",
+                actionTimestamp: new Date(Date.now() - 25 * 86400000).toISOString(),
                 details: "O usuário daniel.lima marcou o PR #1035 como fechado sem merge (AD-4610)."
             },
             {
@@ -255,14 +263,15 @@
                 repo: "api-gateway",
                 actionUser: "alice.silva",
                 status: "merged",
-                actionTimestamp: new Date(Date.now() - 50 * 86400000).toISOString(), // 50 days ago
-                author: "igor.sec",
+                actionTimestamp: new Date(Date.now() - 50 * 86400000).toISOString(),
                 details: "O usuário alice.silva realizou o merge do PR de segurança em api-gateway (AD-4500)."
             }
         ];
 
         document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
+            if (window.lucide) {
+                lucide.createIcons();
+            }
 
             const repoInput = document.getElementById('filter-repo');
             const userInput = document.getElementById('filter-user');
@@ -274,8 +283,9 @@
             const tableContainer = document.getElementById('table-container');
             const tableBody = document.getElementById('table-body');
             const resultCount = document.getElementById('result-count');
+            const loadingSpinner = document.getElementById('loading-spinner');
 
-            // Modal elements
+            // Modais
             const apiModal = document.getElementById('api-modal');
             const openApiModalBtn = document.getElementById('open-api-modal');
             const closeApiModalBtn = document.getElementById('close-api-modal');
@@ -286,21 +296,79 @@
             const closeDetailsModalBtn = document.getElementById('close-details-modal');
             const detailsContent = document.getElementById('details-content');
 
-            // Modal Toggles
             openApiModalBtn.addEventListener('click', () => {
                 apiModal.classList.remove('hidden');
                 apiTokenInput.value = runtimeState.apiKey;
             });
             closeApiModalBtn.addEventListener('click', () => apiModal.classList.add('hidden'));
             saveApiModalBtn.addEventListener('click', () => {
-                runtimeState.apiKey = apiTokenInput.value;
+                runtimeState.apiKey = apiTokenInput.value.trim();
                 apiModal.classList.add('hidden');
+                checkFiltersAndSearch();
             });
 
             closeDetailsModalBtn.addEventListener('click', () => detailsModal.classList.add('hidden'));
 
-            // Check if all mandatory fields are filled
-            function checkFiltersAndSearch() {
+            async function fetchPRsForAudit(repoQuery) {
+                // Se o repositório estiver no formato owner/repo e houver conexão com internet, busca na API do GitHub
+                if (repoQuery.includes('/') && !repoQuery.startsWith('/') && !repoQuery.endsWith('/')) {
+                    try {
+                        loadingSpinner.classList.remove('hidden');
+                        const headers = {
+                            'Accept': 'application/vnd.github.v3+json'
+                        };
+                        if (runtimeState.apiKey) {
+                            headers['Authorization'] = `token ${runtimeState.apiKey}`;
+                        }
+
+                        const response = await fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=100&sort=updated&direction=desc`, {
+                            headers
+                        });
+
+                        if (response.ok) {
+                            const pulls = await response.json();
+                            return pulls.map(pr => {
+                                // Extrai AD do título (ex: AD-1234 ou AD 1234)
+                                const adMatch = pr.title.match(/AD[-_\s]?\d+/i);
+                                const ad = adMatch ? adMatch[0].toUpperCase().replace(/\s+/, '-') : 'N/A';
+
+                                let status = 'open';
+                                let actionUser = pr.user ? pr.user.login : 'unknown';
+                                let actionTimestamp = pr.created_at;
+
+                                if (pr.merged_at) {
+                                    status = 'merged';
+                                    actionTimestamp = pr.merged_at;
+                                    actionUser = pr.merged_by ? pr.merged_by.login : actionUser;
+                                } else if (pr.closed_at) {
+                                    status = 'closed';
+                                    actionTimestamp = pr.closed_at;
+                                }
+
+                                return {
+                                    id: pr.number,
+                                    title: pr.title,
+                                    ad: ad,
+                                    repo: repoQuery,
+                                    actionUser: actionUser,
+                                    status: status,
+                                    actionTimestamp: actionTimestamp,
+                                    details: `Ação registrada no PR #${pr.number} do repositório ${repoQuery} por ${actionUser}. Atualizado em: ${new Date(pr.updated_at).toLocaleString('pt-BR')}.`
+                                };
+                            });
+                        }
+                    } catch (err) {
+                        // Falha de rede ou CORS cai no dataset local
+                    } finally {
+                        loadingSpinner.classList.add('hidden');
+                    }
+                }
+                
+                // Fallback para dataset de auditoria local
+                return mockDatabase;
+            }
+
+            async function checkFiltersAndSearch() {
                 const repo = repoInput.value.trim();
                 const user = userInput.value.trim();
                 const period = periodSelect.value;
@@ -308,11 +376,12 @@
 
                 runtimeState.filters = { repo, user, period, sort };
 
-                // Mandatory: repo and user must be filled, and period selected
                 if (repo.length > 0 && user.length > 0 && period) {
                     searchPrompt.classList.add('hidden');
                     tableContainer.classList.remove('hidden');
-                    executeSearch();
+
+                    const dataset = await fetchPRsForAudit(repo);
+                    executeSearch(dataset);
                 } else {
                     searchPrompt.classList.remove('hidden');
                     tableContainer.classList.add('hidden');
@@ -320,29 +389,27 @@
                 }
             }
 
-            // Execute search based on filters and action period timestamp
-            function executeSearch() {
+            function executeSearch(dataset) {
                 const { repo, user, period, sort } = runtimeState.filters;
                 const daysLimit = parseInt(period, 10);
-                const now = new Date();
-                const cutoffDate = new Date(now.getTime() - (daysLimit * 86400000));
+                const cutoffDate = new Date(Date.now() - (daysLimit * 86400000));
 
                 const repoQuery = repo.toLowerCase();
                 const userQuery = user.toLowerCase();
 
-                let filtered = mockDatabase.filter(item => {
-                    // Match mandatory Repo (exact or contains)
+                let filtered = dataset.filter(item => {
+                    // Match repo
                     if (!item.repo.toLowerCase().includes(repoQuery)) return false;
-                    // Match actionUser (exact or contains)
+                    // Match actionUser
                     if (!item.actionUser.toLowerCase().includes(userQuery)) return false;
-                    // Match action timestamp period
+                    // Match período pela data da ação
                     const actionDate = new Date(item.actionTimestamp);
-                    if (actionDate < cutoffDate) return false;
+                    if (isNaN(actionDate.getTime()) || actionDate < cutoffDate) return false;
 
                     return true;
                 });
 
-                // Sorting
+                // Ordenação por ID ou Número do AD
                 filtered.sort((a, b) => {
                     if (sort === 'id-desc') return b.id - a.id;
                     if (sort === 'id-asc') return a.id - b.id;
@@ -350,10 +417,10 @@
                     return 0;
                 });
 
+                runtimeState.currentData = filtered;
                 renderTable(filtered);
             }
 
-            // Render table rows
             function renderTable(data) {
                 tableBody.innerHTML = '';
                 resultCount.textContent = `${data.length} registro${data.length === 1 ? '' : 's'}`;
@@ -373,7 +440,6 @@
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-google-surfaceHover/50 transition-colors';
 
-                    // Format status badge
                     let statusBadgeClass = '';
                     let statusLabel = item.status.toUpperCase();
                     if (item.status === 'merged') statusBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
@@ -381,9 +447,10 @@
                     else if (item.status === 'reviewed') statusBadgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
                     else statusBadgeClass = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
 
-                    const formattedDate = new Date(item.actionTimestamp).toLocaleString('pt-BR', {
+                    const actionDate = new Date(item.actionTimestamp);
+                    const formattedDate = !isNaN(actionDate.getTime()) ? actionDate.toLocaleString('pt-BR', {
                         day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    });
+                    }) : item.actionTimestamp;
 
                     tr.innerHTML = `
                         <td class="p-4 font-medium text-white max-w-xs truncate">
@@ -397,7 +464,7 @@
                         </td>
                         <td class="p-4 text-google-subtext text-xs">${formattedDate}</td>
                         <td class="p-4 text-right">
-                            <button class="view-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors" data-id="${item.id}" title="Ver Detalhes">
+                            <button class="view-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center" data-id="${item.id}" title="Ver Detalhes">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                         </td>
@@ -405,22 +472,24 @@
                     tableBody.appendChild(tr);
                 });
 
-                lucide.createIcons();
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
 
-                // Attach detail click listeners
                 document.querySelectorAll('.view-details-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
-                        const item = mockDatabase.find(i => i.id === id);
+                        const item = runtimeState.currentData.find(i => i.id === id);
                         if (item) {
                             detailsContent.innerHTML = `
-                                <div class="flex flex-col gap-2">
-                                    <div><strong class="text-white">Pull Request:</strong> #${item.id} - ${item.title}</div>
-                                    <div><strong class="text-white">Repositório:</strong> ${item.repo}</div>
-                                    <div><strong class="text-white">Usuário Responsável:</strong> ${item.actionUser}</div>
-                                    <div><strong class="text-white">Status Atual:</strong> ${item.status.toUpperCase()}</div>
-                                    <div><strong class="text-white">Data/Horário da Ação:</strong> ${new Date(item.actionTimestamp).toLocaleString('pt-BR')}</div>
-                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed">${item.details}</div>
+                                <div class="flex flex-col gap-2.5">
+                                    <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
+                                    <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
+                                    <div><span class="text-google-subtext">AD:</span> <span class="text-white font-medium">${item.ad}</span></div>
+                                    <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
+                                    <div><span class="text-google-subtext">Status:</span> <span class="text-white font-medium">${item.status.toUpperCase()}</span></div>
+                                    <div><span class="text-google-subtext">Data da Ação:</span> <span class="text-white font-medium">${new Date(item.actionTimestamp).toLocaleString('pt-BR')}</span></div>
+                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">${item.details}</div>
                                 </div>
                             `;
                             detailsModal.classList.remove('hidden');
@@ -429,13 +498,18 @@
                 });
             }
 
-            // Event Listeners for filter changes
-            repoInput.addEventListener('input', checkFiltersAndSearch);
-            userInput.addEventListener('input', checkFiltersAndSearch);
+            // Debounce nos inputs de texto
+            let debounceTimer;
+            const debouncedSearch = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(checkFiltersAndSearch, 300);
+            };
+
+            repoInput.addEventListener('input', debouncedSearch);
+            userInput.addEventListener('input', debouncedSearch);
             periodSelect.addEventListener('change', checkFiltersAndSearch);
             sortSelect.addEventListener('change', checkFiltersAndSearch);
 
-            // Clear filters button
             clearFiltersBtn.addEventListener('click', () => {
                 repoInput.value = '';
                 userInput.value = '';
