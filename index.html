@@ -117,7 +117,7 @@
                     <select id="filter-sort" class="bg-google-bg border border-google-border text-google-text text-sm rounded-lg focus:ring-1 focus:ring-google-primary focus:border-google-primary block w-full p-2.5 outline-none transition-all">
                         <option value="id-desc">ID do PR (Maior para Menor)</option>
                         <option value="id-asc">ID do PR (Menor para Maior)</option>
-                        <option value="ad-asc">Número do AD</option>
+                        <option value="ad-asc">Número do AB#</option>
                     </select>
                 </div>
             </div>
@@ -161,7 +161,7 @@
                     <thead>
                         <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
                             <th class="p-4">PULL REQUEST</th>
-                            <th class="p-4">AD</th>
+                            <th class="p-4">AB#</th>
                             <th class="p-4">STATUS DO PR</th>
                             <th class="p-4">DATA E HORÁRIO DA AÇÃO</th>
                             <th class="p-4 text-right">DETALHES</th>
@@ -238,53 +238,53 @@
         const mockDatabase = [
             {
                 id: 1042,
-                title: "Fix OAuth timeout handling [AD-4891]",
-                ad: "AD-4891",
+                title: "Fix OAuth timeout handling [AB#4891]",
+                ad: "AB#4891",
                 repo: "auth-service",
                 actionUser: "alice.silva",
                 status: "merged",
                 actionTimestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
-                details: "O usuário alice.silva realizou o merge do PR #1042 correspondente à demanda AD-4891 na branch main."
+                details: "O usuário alice.silva realizou o merge do PR #1042 correspondente ao item AB#4891 na branch main."
             },
             {
                 id: 1041,
-                title: "Update database connection pool [AD-4850]",
-                ad: "AD-4850",
+                title: "Update database connection pool [AB#4850]",
+                ad: "AB#4850",
                 repo: "api-gateway",
                 actionUser: "bruno.souza",
                 status: "open",
                 actionTimestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
-                details: "O usuário bruno.souza abriu o PR #1041 para otimização de pool de conexões (AD-4850)."
+                details: "O usuário bruno.souza abriu o PR #1041 para otimização de pool de conexões (AB#4850)."
             },
             {
                 id: 1039,
-                title: "Refactor payment gateway webhook listener [AD-4720]",
-                ad: "AD-4720",
+                title: "Refactor payment gateway webhook listener [AB#4720]",
+                ad: "AB#4720",
                 repo: "payment-engine",
                 actionUser: "carla.mendes",
                 status: "reviewed",
                 actionTimestamp: new Date(Date.now() - 12 * 86400000).toISOString(),
-                details: "O usuário carla.mendes completou a revisão técnica do código para a tarefa AD-4720."
+                details: "O usuário carla.mendes completou a revisão técnica do código para a tarefa AB#4720."
             },
             {
                 id: 1035,
-                title: "Design System button states update [AD-4610]",
-                ad: "AD-4610",
+                title: "Design System button states update [AB#4610]",
+                ad: "AB#4610",
                 repo: "frontend-core",
                 actionUser: "daniel.lima",
                 status: "closed",
                 actionTimestamp: new Date(Date.now() - 25 * 86400000).toISOString(),
-                details: "O usuário daniel.lima marcou o PR #1035 como fechado sem merge (AD-4610)."
+                details: "O usuário daniel.lima marcou o PR #1035 como fechado sem merge (AB#4610)."
             },
             {
                 id: 1030,
-                title: "Enhance security rate limiting middleware [AD-4500]",
-                ad: "AD-4500",
+                title: "Enhance security rate limiting middleware [AB#4500]",
+                ad: "AB#4500",
                 repo: "api-gateway",
                 actionUser: "alice.silva",
                 status: "merged",
                 actionTimestamp: new Date(Date.now() - 50 * 86400000).toISOString(),
-                details: "O usuário alice.silva realizou o merge do PR de segurança em api-gateway (AD-4500)."
+                details: "O usuário alice.silva realizou o merge do PR de segurança em api-gateway (AB#4500)."
             }
         ];
 
@@ -441,15 +441,22 @@
                             ]);
 
                             if (fullPrResp && fullPrResp.ok) fullPR = await fullPrResp.json();
-                            if (reviewsResp && reviewsResp.ok) reviews = await reviewsResp.json();
-                        } catch (e) { /* fallback suave se rate limit individual falhar */ }
+                        if (reviewsResp && reviewsResp.ok) reviews = await reviewsResp.json();
+                    } catch (e) { /* fallback suave se rate limit individual falhar */ }
 
-                        const basePR = fullPR || pr;
-                        const adMatch = basePR.title ? basePR.title.match(/AD[-_\s]?\d+/i) : null;
-                        const ad = adMatch ? adMatch[0].toUpperCase().replace(/\s+/, '-') : 'N/A';
+                    const basePR = fullPR || pr;
+                    
+                    // Busca pelo identificador AB# tanto na descrição (body) quanto no título do PR
+                    const contentToInspect = `${basePR.body || ''} ${basePR.title || ''}`;
+                    const abMatch = contentToInspect.match(/AB#\s*\d+/i) || 
+                                    contentToInspect.match(/AB[-_\s]?\d+/i) || 
+                                    contentToInspect.match(/AD[-_\s]?\d+/i);
+                    const ad = abMatch 
+                        ? abMatch[0].toUpperCase().replace(/\s+/, '').replace(/^AB(?=\d)/i, 'AB#') 
+                        : 'N/A';
 
-                        // Identifica quem mesclou
-                        const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
+                    // Identifica quem mesclou
+                    const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
 
                         // Identifica reviews feitas pelo targetUser
                         let userReview = null;
@@ -764,7 +771,7 @@
                                 <div class="flex flex-col gap-2.5">
                                     <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
                                     <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
-                                    <div><span class="text-google-subtext">AD:</span> <span class="text-white font-medium">${item.ad}</span></div>
+                                    <div><span class="text-google-subtext">AB#:</span> <span class="text-white font-medium">${item.ad}</span></div>
                                     <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
                                     <div><span class="text-google-subtext">Status:</span> <span class="text-white font-medium">${item.status.toUpperCase()}</span></div>
                                     <div><span class="text-google-subtext">Data da Ação:</span> <span class="text-white font-medium">${new Date(item.actionTimestamp).toLocaleString('pt-BR')}</span></div>
