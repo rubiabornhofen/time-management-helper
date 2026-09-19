@@ -293,8 +293,8 @@
                     <select id="filter-period" class="form-control">
                         <option value="today">Dia atual (Hoje)</option>
                         <option value="yesterday">Dia anterior (Ontem)</option>
-                        <option value="3">Últimos 3 dias</option>
-                        <option value="7" selected>Últimos 7 dias</option>
+                        <option value="3" selected>Últimos 3 dias</option>
+                        <option value="7">Últimos 7 dias</option>
                         <option value="15">Últimos 15 dias</option>
                         <option value="30">Últimos 30 dias</option>
                     </select>
@@ -344,8 +344,8 @@
                 <div class="w-12 h-12 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-subtext mb-3 border border-google-border">
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
-                <h4 class="text-sm font-medium text-white mb-1">Preencha os campos para iniciar</h4>
-                <p class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu E-mail corporativo nas credenciais.</p>
+                <h4 id="search-prompt-title" class="text-sm font-medium text-white mb-1">Preencha os campos para iniciar</h4>
+                <p id="search-prompt-desc" class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu E-mail corporativo nas credenciais.</p>
             </div>
 
             <!-- Aba 1: Tabela de Pull Requests do GitHub -->
@@ -773,7 +773,7 @@
                     start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
                     end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
                 } else {
-                    const days = parseInt(periodValue, 10) || 7;
+                    const days = parseInt(periodValue, 10) || 3;
                     start = new Date(Date.now() - (days * 86400000));
                     end = now;
                 }
@@ -1122,8 +1122,12 @@
                     repoFormatHint.classList.add('hidden');
                     tabPrsView.classList.add('hidden');
                     searchPrompt.classList.remove('hidden');
-                    searchPromptTitle.textContent = 'Informe o Usuário GitHub para os PRs';
-                    searchPromptDesc.textContent = 'Preencha o campo Usuário GitHub e o Repositório para auditar os Pull Requests.';
+                    if (searchPromptTitle) {
+                        searchPromptTitle.textContent = 'Informe o Usuário GitHub para os PRs';
+                    }
+                    if (searchPromptDesc) {
+                        searchPromptDesc.textContent = 'Preencha o campo Usuário GitHub e o Repositório para auditar os Pull Requests.';
+                    }
                     badgePrsCount.textContent = '0';
                 }
             }
