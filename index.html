@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
-    <title>Auditoria de Pull Requests</title>
+    <title>Auditoria de Pull Requests e Cards</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -151,6 +151,28 @@
             color: #ffffff;
         }
 
+        /* Abas de Navegação */
+        .tab-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #c4c7c5;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab-button:hover {
+            color: #ffffff;
+            border-bottom-color: rgba(138, 180, 248, 0.4);
+        }
+        .tab-button.active {
+            color: #8ab4f8;
+            border-bottom-color: #8ab4f8;
+        }
+
         /* Badges de Status */
         .badge-status {
             padding: 0.25rem 0.625rem;
@@ -176,6 +198,18 @@
             border-color: rgba(59, 130, 246, 0.2);
         }
 
+        /* Badges de Tipos do Azure DevOps */
+        .badge-devops-story {
+            background-color: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .badge-devops-bug {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
         /* Banner de Alerta */
         .alert-error-banner {
             padding: 1rem;
@@ -189,7 +223,6 @@
         }
     </style>
 </head>
-
 <body class="min-h-screen flex flex-col bg-google-bg text-google-text antialiased selection:bg-google-primary/30">
 
     <!-- Cabeçalho -->
@@ -199,12 +232,12 @@
                 <div class="p-2 bg-google-primary/10 rounded-lg text-google-primary flex items-center justify-center">
                     <i data-lucide="shield-check" class="w-6 h-6"></i>
                 </div>
-                <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">PR Audit & Trace</h1>
+                <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">Audit & Trace Hub</h1>
             </div>
             <div class="flex items-center space-x-2">
                 <button id="open-api-modal" type="button" class="btn-header-action">
                     <i data-lucide="key" class="w-4 h-4 text-google-primary"></i>
-                    <span class="hidden sm:inline">Configurar API</span>
+                    <span class="hidden sm:inline">Configurar Credenciais (GitHub & Azure)</span>
                 </button>
             </div>
         </div>
@@ -225,17 +258,17 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <!-- Repositório -->
+                <!-- Repositório GitHub -->
                 <div class="flex flex-col gap-1.5">
-                    <label for="filter-repo" class="form-label">Repositório *</label>
+                    <label for="filter-repo" class="form-label">Repositório GitHub *</label>
                     <input type="text" id="filter-repo" placeholder="Ex: org/repo ou usuario/projeto" class="form-control">
-                    <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong> (ex: facebook/react)</span>
+                    <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong> (ex: org/projeto)</span>
                 </div>
 
                 <!-- Usuário da Ação -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-user" class="form-label">Usuário da Ação *</label>
-                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="form-control">
+                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen ou Nome Sobrenome" class="form-control">
                 </div>
 
                 <!-- Período -->
@@ -253,8 +286,30 @@
             </div>
         </div>
 
-        <!-- Área de Resultados -->
-        <div class="card-surface overflow-hidden flex-1 flex flex-col min-h-[360px]">
+        <!-- Área de Auditoria com Abas -->
+        <div class="card-surface overflow-hidden flex-1 flex flex-col min-h-[420px]">
+            <!-- Barra de Abas (GitHub PRs vs Azure DevOps Cards) -->
+            <div class="flex items-center justify-between border-b border-google-border px-4 bg-google-surface/60 overflow-x-auto">
+                <div class="flex items-center space-x-1">
+                    <button id="tab-prs-btn" class="tab-button active" type="button">
+                        <i data-lucide="git-pull-request" class="w-4 h-4"></i>
+                        <span>Pull Requests (GitHub)</span>
+                        <span id="badge-prs-count" class="text-[10px] px-2 py-0.5 rounded-full bg-google-surfaceHover text-google-subtext font-mono">0</span>
+                    </button>
+                    <button id="tab-devops-btn" class="tab-button" type="button">
+                        <i data-lucide="trello" class="w-4 h-4"></i>
+                        <span>Cards Azure DevOps</span>
+                        <span id="badge-devops-count" class="text-[10px] px-2 py-0.5 rounded-full bg-google-surfaceHover text-google-subtext font-mono">0</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center py-2">
+                    <span id="loading-spinner" class="hidden text-xs text-google-primary flex items-center gap-1.5">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                        <span id="loading-text">Consultando...</span>
+                    </span>
+                </div>
+            </div>
             <!-- Banner de Alerta e Erros da API com Botão Fechar -->
             <div id="api-error-banner" class="alert-error-banner hidden">
                 <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0 mt-0.5"></i>
@@ -267,53 +322,72 @@
                 </button>
             </div>
 
-            <div class="p-4 sm:p-6 border-b border-google-border flex items-center justify-between gap-4">
-                <h3 class="text-base font-medium text-white flex items-center gap-2">
-                    <i data-lucide="list" class="w-4 h-4 text-google-primary"></i>
-                    Resultados da Auditoria
-                </h3>
-                <div class="flex items-center gap-2">
-                    <span id="loading-spinner" class="hidden text-xs text-google-primary flex items-center gap-1.5">
-                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-                        <span>Buscando...</span>
-                    </span>
-                    <span id="result-count" class="text-xs bg-google-surfaceHover px-2.5 py-1 rounded-full text-google-subtext border border-google-border">0 registros</span>
-                </div>
-            </div>
-
             <!-- Estado Inicial / Campos Pendentes -->
             <div id="search-prompt" class="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
                 <div class="w-12 h-12 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-subtext mb-3 border border-google-border">
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
                 <h4 class="text-sm font-medium text-white mb-1">Preencha todos os campos obrigatórios</h4>
-                <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período para exibir a auditoria.</p>
+                <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período para exibir a auditoria de Pull Requests e Cards do Azure DevOps.</p>
             </div>
 
-            <!-- Tabela: AB# como primeira coluna agrupada -->
-            <div id="table-container" class="hidden overflow-x-auto flex-1">
-                <table class="w-full text-left border-collapse min-w-[700px]">
-                    <thead>
-                        <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
-                            <th class="p-4 w-40">AB#</th>
-                            <th class="p-4">PULL REQUEST</th>
-                            <th class="p-4">STATUS</th>
-                            <th class="p-4">DATA E HORÁRIO DA AÇÃO</th>
-                            <th class="p-4 text-right">DETALHES</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body" class="divide-y divide-google-border text-sm">
-                        <!-- Preenchido dinamicamente via JS com agrupamento por AB# -->
-                    </tbody>
-                </table>
+            <!-- Aba 1: Tabela de Pull Requests do GitHub -->
+            <div id="tab-prs-view" class="hidden flex-1 flex-col">
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
+                                <th class="p-4 w-40">AD#</th>
+                                <th class="p-4">PULL REQUEST</th>
+                                <th class="p-4">STATUS</th>
+                                <th class="p-4">DATA E HORÁRIO DA AÇÃO</th>
+                                <th class="p-4 text-right">DETALHES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-google-border text-sm">
+                            <!-- Preenchido dinamicamente via JS com agrupamento por AD# -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Aba 2: Tabela de Cards do Azure DevOps (User Story & Bug) -->
+            <div id="tab-devops-view" class="hidden flex-1 flex-col">
+                <!-- Info Bar Azure DevOps -->
+                <div class="p-3 bg-google-bg/60 border-b border-google-border flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2 text-google-subtext">
+                        <i data-lucide="info" class="w-3.5 h-3.5 text-google-primary"></i>
+                        <span>Consulta OData: <strong>User Story</strong> e <strong>Bug</strong> alterados pelo usuário no período.</span>
+                    </div>
+                    <div id="azure-config-indicator" class="flex items-center gap-2 text-[11px] font-mono">
+                        <!-- Preenchido dinamicamente com status da org/projeto configurados -->
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
+                                <th class="p-4 w-36">CARD ID</th>
+                                <th class="p-4 w-36">TIPO</th>
+                                <th class="p-4">TÍTULO</th>
+                                <th class="p-4 w-52">DATA E HORA DA ALTERAÇÃO</th>
+                                <th class="p-4 text-right w-28">AÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devops-table-body" class="divide-y divide-google-border text-sm">
+                            <!-- Preenchido dinamicamente via JS com WorkItemRevisions -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
     </main>
 
-    <!-- Modal de Configuração de Credenciais -->
+    <!-- Modal de Configuração de Credenciais (GitHub + Azure DevOps) -->
     <div id="api-modal" class="modal-overlay modal-backdrop flex" style="display: none;">
-        <div class="modal-card max-w-md">
+        <div class="modal-card max-w-lg max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-medium text-white flex items-center gap-2">
                     <i data-lucide="key" class="w-5 h-5 text-google-primary"></i>
@@ -323,50 +397,89 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            
-            <div class="flex flex-col gap-3">
-                <div class="flex flex-col gap-1.5">
-                    <label for="api-token-input" class="form-label">Token GitHub</label>
-                    <input type="password" id="api-token-input" placeholder="github_pat_... ou ghp_..." class="form-control font-mono text-xs">
+            <div class="flex flex-col gap-4">
+                <!-- Seção GitHub -->
+                <div class="border-b border-google-border/70 pb-4 flex flex-col gap-3">
+                    <div class="flex items-center gap-2 text-white font-medium text-sm">
+                        <i data-lucide="github" class="w-4 h-4 text-google-primary"></i>
+                        <span>GitHub</span>
+                    </div>
                     
-                    <div class="text-[11px] text-google-subtext/85 leading-relaxed flex flex-col gap-2 mt-1">
-                        <span>Opcional para repositórios públicos. Necessário para repositórios privados ou para contornar o limite de requisições (rate limit).</span>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="api-token-input" class="form-label">Token GitHub (Opcional p/ público)</label>
+                        <input type="password" id="api-token-input" placeholder="github_pat_... ou ghp_..." class="form-control font-mono text-xs">
                         
-                        <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1.5">
+                        <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1.5 mt-1">
                             <span class="font-medium text-google-primary flex items-center gap-1.5">
                                 <i data-lucide="info" class="w-3.5 h-3.5"></i>
-                                Como gerar o token recomendado:
+                                Fine-grained Token recomendado:
                             </span>
                             <ol class="list-decimal pl-4 space-y-1 text-google-subtext/90">
-                                <li>Crie um <strong class="text-white">Fine-grained token</strong> no GitHub (<em>Developer Settings &gt; Personal access tokens</em>).</li>
-                                <li>Em <strong class="text-white">Repository access</strong>, selecione os repositórios que deseja auditar.</li>
-                                <li>Na seção <strong class="text-white">Repository permissions</strong>, conceda permissão <strong class="text-white">Read-only</strong> (apenas leitura) para:
-                                    <ul class="list-disc pl-4 mt-0.5 space-y-0.5 text-google-primary/90 font-mono text-[10px]">
-                                        <li>Pull requests (Read-only)</li>
-                                        <li>Metadata (Read-only)</li>
-                                    </ul>
-                                </li>
+                                <li>Selecione os repositórios em <em>Repository access</em>.</li>
+                                <li>Conceda <strong>Read-only</strong> para: <code class="text-google-primary font-mono">Pull requests</code> e <code class="text-google-primary font-mono">Metadata</code>.</li>
                             </ol>
                         </div>
                     </div>
                 </div>
+
+                <!-- Seção Azure DevOps -->
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2 text-white font-medium text-sm">
+                        <i data-lucide="cloud" class="w-4 h-4 text-blue-400"></i>
+                        <span>Azure DevOps (Analytics OData)</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="flex flex-col gap-1.5">
+                            <label for="azure-org-input" class="form-label">Organização ({org}) *</label>
+                            <input type="text" id="azure-org-input" placeholder="Ex: minha-empresa" class="form-control font-mono text-xs">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="azure-project-input" class="form-label">Projeto ({project}) *</label>
+                            <input type="text" id="azure-project-input" placeholder="Ex: Core-Platform" class="form-control font-mono text-xs">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="azure-pat-input" class="form-label">Personal Access Token (PAT) Azure DevOps *</label>
+                        <input type="password" id="azure-pat-input" placeholder="Cole seu PAT do Azure DevOps..." class="form-control font-mono text-xs">
+                        <span class="text-[11px] text-google-subtext/80">Necessário para acessar o endpoint Analytics OData v3.0 do Azure DevOps.</span>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="azure-username-input" class="form-label">Nome de Exibição no Azure DevOps (Opcional)</label>
+                        <input type="text" id="azure-username-input" placeholder="Ex: Rubia Bornhofen (Deixe vazio para usar o mesmo do filtro)" class="form-control text-xs">
+                        <span class="text-[11px] text-google-subtext/80">O Azure DevOps Analytics compara com <code class="font-mono text-google-primary">ChangedBy/UserName</code> (geralmente Nome Completo ou E-mail da conta corporativa).</span>
+                    </div>
+
+                    <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1">
+                        <span class="font-medium text-blue-300 flex items-center gap-1.5">
+                            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                            Permissões necessárias para o PAT do Azure DevOps:
+                        </span>
+                        <ul class="list-disc pl-4 space-y-0.5 text-google-subtext/90">
+                            <li><strong>Analytics:</strong> Read</li>
+                            <li><strong>Work Items:</strong> Read</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 mt-2">
+            <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-google-border">
                 <button id="save-api-modal" type="button" class="btn-primary">
-                    Salvar
+                    Salvar em Memória
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Detalhes -->
+    <!-- Modal de Detalhes do PR ou Card -->
     <div id="details-modal" class="modal-overlay modal-backdrop flex" style="display: none;">
         <div class="modal-card max-w-lg">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-medium text-white flex items-center gap-2">
                     <i data-lucide="file-text" class="w-5 h-5 text-google-primary"></i>
-                    Detalhes da Ação do PR
+                    <span id="details-modal-title">Detalhes do Registro</span>
                 </h3>
                 <button id="close-details-modal" type="button" class="btn-icon-close">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -377,18 +490,93 @@
             </div>
         </div>
     </div>
-
     <script>
+        // Estado estritamente em memória RAM em tempo de execução
         const runtimeState = {
-            apiKey: '',
+            apiKey: '', // GitHub Token
+            azure: {
+                org: '',
+                project: '',
+                pat: '',
+                displayName: ''
+            },
             filters: {
                 repo: '',
                 user: '',
                 period: '7'
             },
-            currentData: []
+            activeTab: 'prs', // 'prs' ou 'devops'
+            currentPRData: [],
+            currentDevOpsData: []
         };
 
+        // Mock de demonstração caso esteja sem conexão direta ou para testes locais
+        const mockGitHubDatabase = [
+            {
+                id: 1042,
+                title: "Fix OAuth timeout handling [AD#4891]",
+                ad: "AD#4891",
+                repo: "auth-service",
+                actionUser: "alice.silva",
+                associatedUsers: ["alice.silva"],
+                status: "merged",
+                actionTimestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
+                details: "O usuário alice.silva realizou o merge do PR #1042 correspondente ao item AD#4891 na branch main."
+            },
+            {
+                id: 1043,
+                title: "OAuth retry policy and unit tests [AD#4891]",
+                ad: "AD#4891",
+                repo: "auth-service",
+                actionUser: "alice.silva",
+                associatedUsers: ["alice.silva"],
+                status: "reviewed",
+                actionTimestamp: new Date(Date.now() - 1 * 86400000).toISOString(),
+                details: "O usuário alice.silva realizou o review e aprovação do PR complementar #1043 para o AD#4891."
+            },
+            {
+                id: 1041,
+                title: "Update database connection pool [AD#4850]",
+                ad: "AD#4850",
+                repo: "api-gateway",
+                actionUser: "bruno.souza",
+                associatedUsers: ["bruno.souza"],
+                status: "created",
+                actionTimestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
+                details: "O usuário bruno.souza criou o PR #1041 para otimização de pool de conexões (AD#4850)."
+            }
+        ];
+
+        const mockAzureDevOpsDatabase = [
+            {
+                WorkItemId: 4891,
+                Title: "Implementar suporte a timeout resiliente no fluxo OAuth",
+                WorkItemType: "User Story",
+                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
+                ChangedBy: { UserName: "alice.silva" }
+            },
+            {
+                WorkItemId: 4850,
+                Title: "Erro de esgotamento no pool de conexões com PostgreSQL",
+                WorkItemType: "Bug",
+                ChangedDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+                ChangedBy: { UserName: "bruno.souza" }
+            },
+            {
+                WorkItemId: 4720,
+                Title: "Webhook listener perdendo eventos de concorrência",
+                WorkItemType: "Bug",
+                ChangedDate: new Date(Date.now() - 4 * 86400000).toISOString(),
+                ChangedBy: { UserName: "rubiabornhofen" }
+            },
+            {
+                WorkItemId: 4910,
+                Title: "Migração de componentes do Design System para v2",
+                WorkItemType: "User Story",
+                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
+                ChangedBy: { UserName: "rubiabornhofen" }
+            }
+        ];
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) {
                 try { lucide.createIcons(); } catch (e) { /* ignore */ }
@@ -400,20 +588,35 @@
             const clearFiltersBtn = document.getElementById('clear-filters');
             
             const searchPrompt = document.getElementById('search-prompt');
-            const tableContainer = document.getElementById('table-container');
+            const tabPrsView = document.getElementById('tab-prs-view');
+            const tabDevOpsView = document.getElementById('tab-devops-view');
             const tableBody = document.getElementById('table-body');
-            const resultCount = document.getElementById('result-count');
+            const devopsTableBody = document.getElementById('devops-table-body');
+
+            const tabPrsBtn = document.getElementById('tab-prs-btn');
+            const tabDevOpsBtn = document.getElementById('tab-devops-btn');
+            const badgePrsCount = document.getElementById('badge-prs-count');
+            const badgeDevOpsCount = document.getElementById('badge-devops-count');
+            const azureConfigIndicator = document.getElementById('azure-config-indicator');
+
             const loadingSpinner = document.getElementById('loading-spinner');
+            const loadingText = document.getElementById('loading-text');
 
             const apiModal = document.getElementById('api-modal');
             const openApiModalBtn = document.getElementById('open-api-modal');
             const closeApiModalBtn = document.getElementById('close-api-modal');
             const saveApiModalBtn = document.getElementById('save-api-modal');
+            
             const apiTokenInput = document.getElementById('api-token-input');
+            const azureOrgInput = document.getElementById('azure-org-input');
+            const azureProjectInput = document.getElementById('azure-project-input');
+            const azurePatInput = document.getElementById('azure-pat-input');
+            const azureUsernameInput = document.getElementById('azure-username-input');
 
             const detailsModal = document.getElementById('details-modal');
             const closeDetailsModalBtn = document.getElementById('close-details-modal');
             const detailsContent = document.getElementById('details-content');
+            const detailsModalTitle = document.getElementById('details-modal-title');
 
             const repoFormatHint = document.getElementById('repo-format-hint');
             const apiErrorBanner = document.getElementById('api-error-banner');
@@ -422,9 +625,9 @@
             const closeApiErrorBtn = document.getElementById('close-api-error');
 
             const auditDiagnostics = {
-                totalFetched: 0,
-                dateFilteredCount: 0,
-                userFilteredCount: 0
+                totalFetchedPRs: 0,
+                dateFilteredPRs: 0,
+                totalFetchedCards: 0
             };
 
             function showErrorBanner(title, message) {
@@ -444,19 +647,76 @@
                 closeApiErrorBtn.addEventListener('click', hideErrorBanner);
             }
 
+            // Controle de Abas
+            tabPrsBtn.addEventListener('click', () => switchTab('prs'));
+            tabDevOpsBtn.addEventListener('click', () => switchTab('devops'));
+
+            function switchTab(tab) {
+                runtimeState.activeTab = tab;
+                if (tab === 'prs') {
+                    tabPrsBtn.classList.add('active');
+                    tabDevOpsBtn.classList.remove('active');
+                    tabPrsView.classList.remove('hidden');
+                    tabDevOpsView.classList.add('hidden');
+                } else {
+                    tabDevOpsBtn.classList.add('active');
+                    tabPrsBtn.classList.remove('active');
+                    tabDevOpsView.classList.remove('hidden');
+                    tabPrsView.classList.add('hidden');
+                }
+            }
+
+            function updateAzureIndicator() {
+                if (runtimeState.azure.org && runtimeState.azure.project) {
+                    azureConfigIndicator.innerHTML = `
+                        <span class="text-emerald-400 flex items-center gap-1">
+                            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project}
+                        </span>
+                    `;
+                } else {
+                    azureConfigIndicator.innerHTML = `
+                        <button type="button" id="quick-config-azure" class="text-google-primary hover:underline flex items-center gap-1 cursor-pointer">
+                            <i data-lucide="settings" class="w-3 h-3"></i>
+                            Configurar Org & Projeto
+                        </button>
+                    `;
+                    const quickBtn = document.getElementById('quick-config-azure');
+                    if (quickBtn) {
+                        quickBtn.addEventListener('click', () => openApiModalBtn.click());
+                    }
+                }
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+            }
+            updateAzureIndicator();
             openApiModalBtn.addEventListener('click', () => {
                 apiTokenInput.value = runtimeState.apiKey;
+                azureOrgInput.value = runtimeState.azure.org;
+                azureProjectInput.value = runtimeState.azure.project;
+                azurePatInput.value = runtimeState.azure.pat;
+                azureUsernameInput.value = runtimeState.azure.displayName;
+
                 apiModal.style.display = 'flex';
                 if (window.lucide) {
                     try { lucide.createIcons(); } catch (e) { /* ignore */ }
                 }
             });
+
             closeApiModalBtn.addEventListener('click', () => {
                 apiModal.style.display = 'none';
             });
+
             saveApiModalBtn.addEventListener('click', () => {
                 runtimeState.apiKey = apiTokenInput.value.trim();
+                runtimeState.azure.org = azureOrgInput.value.trim();
+                runtimeState.azure.project = azureProjectInput.value.trim();
+                runtimeState.azure.pat = azurePatInput.value.trim();
+                runtimeState.azure.displayName = azureUsernameInput.value.trim();
+
                 apiModal.style.display = 'none';
+                updateAzureIndicator();
                 checkFiltersAndSearch();
             });
 
@@ -464,11 +724,119 @@
                 detailsModal.style.display = 'none';
             });
 
+            function getDateRangeForPeriod(periodValue) {
+                const now = new Date();
+                let start = new Date();
+                let end = new Date();
+
+                if (periodValue === 'today') {
+                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+                } else if (periodValue === 'yesterday') {
+                    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+                    end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+                } else {
+                    const days = parseInt(periodValue, 10) || 7;
+                    start = new Date(Date.now() - (days * 86400000));
+                    end = now;
+                }
+
+                return {
+                    startISO: start.toISOString(),
+                    endISO: end.toISOString(),
+                    start,
+                    end
+                };
+            }
+
+            function isDateInPeriod(dateObj, periodValue) {
+                const { start, end } = getDateRangeForPeriod(periodValue);
+                const targetTime = dateObj.getTime();
+                return targetTime >= start.getTime() && targetTime <= end.getTime();
+            }
+
+            function getPeriodLabel(periodValue) {
+                switch(periodValue) {
+                    case 'today': return 'Dia atual (Hoje)';
+                    case 'yesterday': return 'Dia anterior (Ontem)';
+                    case '3': return 'Últimos 3 dias';
+                    case '7': return 'Últimos 7 dias';
+                    case '15': return 'Últimos 15 dias';
+                    case '30': return 'Últimos 30 dias';
+                    default: return `Últimos ${periodValue} dias`;
+                }
+            }
+            async function fetchAzureDevOpsCards(targetUser, periodValue) {
+                const { org, project, pat, displayName } = runtimeState.azure;
+                const { startISO, endISO } = getDateRangeForPeriod(periodValue);
+
+                // Usuário do Azure DevOps: nome customizado ou o mesmo do filtro
+                const queryUser = (displayName || targetUser).replace(/^@/, '').trim();
+
+                // Se não houver org/project ou pat, executa fallback com mock local para teste
+                if (!org || !project || !pat) {
+                    const filteredMock = mockAzureDevOpsDatabase.filter(card => {
+                        const cardDate = new Date(card.ChangedDate);
+                        const cleanCardUser = (card.ChangedBy?.UserName || '').toLowerCase();
+                        const cleanTarget = queryUser.toLowerCase();
+                        
+                        const userMatch = cleanCardUser.includes(cleanTarget) || cleanTarget.includes(cleanCardUser);
+                        const dateMatch = isDateInPeriod(cardDate, periodValue);
+                        return userMatch && dateMatch;
+                    });
+                    return filteredMock;
+                }
+
+                try {
+                    // Monta a query OData exata solicitada
+                    // $filter=ChangedBy/UserName eq '...' and ChangedDate ge ... and ChangedDate lt ... and (WorkItemType eq 'User Story' or WorkItemType eq 'Bug')
+                    const filterOData = [
+                        `ChangedBy/UserName eq '${encodeURIComponent(queryUser)}'`,
+                        `ChangedDate ge ${startISO}`,
+                        `ChangedDate lt ${endISO}`,
+                        `(WorkItemType eq 'User Story' or WorkItemType eq 'Bug')`
+                    ].join(' and ');
+
+                    const selectFields = `WorkItemId,Title,WorkItemType,ChangedDate,ChangedBy`;
+                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${filterOData}&$select=${selectFields}&$orderby=ChangedDate desc`;
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${btoa(':' + pat)}`
+                    };
+
+                    const response = await fetch(odataUrl, { headers });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            showErrorBanner(
+                                'Azure DevOps: PAT inválido ou expirado (401)',
+                                'O Personal Access Token (PAT) do Azure DevOps foi recusado. Verifique a chave e garanta as permissões <em>Analytics: Read</em>.'
+                            );
+                        } else if (response.status === 403) {
+                            showErrorBanner(
+                                'Azure DevOps: Acesso Negado (403)',
+                                'Seu usuário não possui permissão para consultar o Analytics OData no projeto Azure DevOps especificado.'
+                            );
+                        } else if (response.status === 404) {
+                            showErrorBanner(
+                                'Azure DevOps: Organização ou Projeto não encontrado (404)',
+                                `Não foi possível encontrar a organização <strong>${org}</strong> ou o projeto <strong>${project}</strong> no Azure DevOps.`
+                            );
+                        }
+                        return [];
+                    }
+
+                    const jsonResult = await response.json();
+                    return Array.isArray(jsonResult.value) ? jsonResult.value : [];
+                } catch (err) {
+                    showErrorBanner('Azure DevOps: Falha de Conexão', `Não foi possível consultar o Azure DevOps Analytics: ${err.message}. Verifique se o PAT está correto e se sua organização permite acesso CORS.`);
+                    return [];
+                }
+            }
             async function fetchPRsForAudit(repoQuery, targetUser) {
-                hideErrorBanner();
-                auditDiagnostics.totalFetched = 0;
-                auditDiagnostics.dateFilteredCount = 0;
-                auditDiagnostics.userFilteredCount = 0;
+                auditDiagnostics.totalFetchedPRs = 0;
+                auditDiagnostics.dateFilteredPRs = 0;
 
                 if (!repoQuery.includes('/') || repoQuery.startsWith('/') || repoQuery.endsWith('/')) {
                     repoFormatHint.classList.remove('hidden');
@@ -478,7 +846,6 @@
                 }
 
                 try {
-                    loadingSpinner.classList.remove('hidden');
                     const headers = {
                         'Accept': 'application/vnd.github.v3+json'
                     };
@@ -509,19 +876,19 @@
                             });
                         } else if (resp && resp.status === 401) {
                             showErrorBanner(
-                                'Token inválido ou expirado (401 Unauthorized)',
-                                'O token configurado foi recusado pelo GitHub. Clique em <strong>Configurar API</strong> no topo e informe um token válido.'
+                                'Token GitHub inválido ou expirado (401 Unauthorized)',
+                                'O token do GitHub configurado foi recusado. Clique em <strong>Configurar Credenciais</strong> e informe um token válido.'
                             );
                             return [];
                         } else if (resp && resp.status === 403) {
                             showErrorBanner(
-                                'Limite da API ou autorização necessária (403 Forbidden)',
-                                'O limite de requisições foi atingido ou este repositório exige token com autorização SSO. Configure um Personal Access Token no topo.'
+                                'Limite da API GitHub ou autorização necessária (403 Forbidden)',
+                                'O limite de requisições foi atingido ou este repositório exige token com autorização SSO. Configure um Personal Access Token.'
                             );
                             return [];
                         } else if (resp && resp.status === 404) {
                             showErrorBanner(
-                                'Repositório não encontrado (404 Not Found)',
+                                'Repositório GitHub não encontrado (404 Not Found)',
                                 `O repositório <strong>${repoQuery}</strong> não foi encontrado ou é privado. Configure um token com permissão de leitura.`
                             );
                             return [];
@@ -529,9 +896,8 @@
                     }
 
                     const candidatePRs = Array.from(pullsMap.values()).slice(0, 40);
-                    auditDiagnostics.totalFetched = candidatePRs.length;
+                    auditDiagnostics.totalFetchedPRs = candidatePRs.length;
 
-                    // Consulta detalhada para cada PR candidato (reviews e merge)
                     const enrichedList = await Promise.all(candidatePRs.map(async (pr) => {
                         const prNumber = pr.number;
                         let fullPR = null;
@@ -549,12 +915,12 @@
 
                         const basePR = fullPR || pr;
                         
-                        // Captura AB# ou AB# na descrição ou título
+                        // Captura AD# ou AB# na descrição ou título
                         const contentToInspect = `${basePR.body || ''} ${basePR.title || ''}`;
                         const adMatch = contentToInspect.match(/(?:AD|AB)#\s*\d+/i) || 
                                         contentToInspect.match(/(?:AD|AB)[-_\s]?\d+/i);
-                        const ab = adMatch 
-                            ? adMatch[0].toUpperCase().replace(/\s+/, '').replace(/^(?:AD|AB)(?=\d)/i, 'AB#') 
+                        const ad = adMatch 
+                            ? adMatch[0].toUpperCase().replace(/\s+/, '').replace(/^(?:AD|AB)(?=\d)/i, 'AD#') 
                             : 'N/A';
 
                         const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
@@ -616,7 +982,7 @@
                         return {
                             id: basePR.number,
                             title: basePR.title || `PR #${basePR.number}`,
-                            ab: ab,
+                            ad: ad,
                             repo: repoQuery,
                             actionUser: actionUser,
                             associatedUsers: associatedUsers,
@@ -628,49 +994,10 @@
 
                     return enrichedList;
                 } catch (err) {
-                    showErrorBanner('Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
+                    showErrorBanner('GitHub: Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
                     return [];
-                } finally {
-                    loadingSpinner.classList.add('hidden');
                 }
             }
-
-            function isDateInPeriod(dateObj, periodValue) {
-                const now = new Date();
-                const targetTime = dateObj.getTime();
-
-                if (periodValue === 'today') {
-                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-                    return targetTime >= startOfToday.getTime();
-                }
-
-                if (periodValue === 'yesterday') {
-                    const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
-                    const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
-                    return targetTime >= startOfYesterday.getTime() && targetTime <= endOfYesterday.getTime();
-                }
-
-                const days = parseInt(periodValue, 10);
-                if (!isNaN(days)) {
-                    const cutoff = Date.now() - (days * 86400000);
-                    return targetTime >= cutoff;
-                }
-
-                return true;
-            }
-
-            function getPeriodLabel(periodValue) {
-                switch(periodValue) {
-                    case 'today': return 'Dia atual (Hoje)';
-                    case 'yesterday': return 'Dia anterior (Ontem)';
-                    case '3': return 'Últimos 3 dias';
-                    case '7': return 'Últimos 7 dias';
-                    case '15': return 'Últimos 15 dias';
-                    case '30': return 'Últimos 30 dias';
-                    default: return `Últimos ${periodValue} dias`;
-                }
-            }
-
             async function checkFiltersAndSearch() {
                 const repo = repoInput.value.trim();
                 const user = userInput.value.trim();
@@ -679,32 +1006,55 @@
                 runtimeState.filters = { repo, user, period };
 
                 if (repo.length > 0 && user.length > 0 && period) {
+                    hideErrorBanner();
                     searchPrompt.classList.add('hidden');
-                    tableContainer.classList.remove('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                    loadingText.textContent = 'Consultando GitHub e Azure DevOps...';
 
-                    let dataset = [];
-                    if (repo.includes('/')) {
-                        dataset = await fetchPRsForAudit(repo, user);
+                    // Exibe a view ativa
+                    if (runtimeState.activeTab === 'prs') {
+                        tabPrsView.classList.remove('hidden');
+                        tabDevOpsView.classList.add('hidden');
+                    } else {
+                        tabDevOpsView.classList.remove('hidden');
+                        tabPrsView.classList.add('hidden');
                     }
 
-                    executeSearch(dataset);
+                    try {
+                        // 1. Busca PRs do GitHub
+                        let prDataset = [];
+                        if (repo.includes('/')) {
+                            prDataset = await fetchPRsForAudit(repo, user);
+                        } else {
+                            prDataset = mockGitHubDatabase;
+                        }
+                        executePRFilter(prDataset);
+
+                        // 2. Busca Cards do Azure DevOps Analytics
+                        const devopsCards = await fetchAzureDevOpsCards(user, period);
+                        executeDevOpsFilter(devopsCards);
+
+                    } finally {
+                        loadingSpinner.classList.add('hidden');
+                    }
                 } else {
                     hideErrorBanner();
                     repoFormatHint.classList.add('hidden');
                     searchPrompt.classList.remove('hidden');
-                    tableContainer.classList.add('hidden');
-                    resultCount.textContent = '0 registros';
+                    tabPrsView.classList.add('hidden');
+                    tabDevOpsView.classList.add('hidden');
+                    badgePrsCount.textContent = '0';
+                    badgeDevOpsCount.textContent = '0';
                 }
             }
 
-            function executeSearch(dataset) {
+            function executePRFilter(dataset) {
                 const { repo, user, period } = runtimeState.filters;
                 const repoQuery = repo.toLowerCase();
                 const rawUser = user.replace(/^@/, '').trim().toLowerCase();
                 const simplifiedUser = rawUser.replace(/[-_.]/g, '');
 
                 let dateExcluded = 0;
-                let userExcluded = 0;
 
                 let filtered = dataset.filter(item => {
                     if (!item.repo.toLowerCase().includes(repoQuery)) return false;
@@ -721,34 +1071,45 @@
                         return lowU.includes(rawUser) || rawUser.includes(lowU) || simpU.includes(simplifiedUser);
                     });
 
-                    if (!userMatches) {
-                        userExcluded++;
-                        return false;
-                    }
-
-                    return true;
+                    return userMatches;
                 });
 
-                auditDiagnostics.dateFilteredCount = dateExcluded;
-                auditDiagnostics.userFilteredCount = userExcluded;
+                auditDiagnostics.dateFilteredPRs = dateExcluded;
 
-                // Ordenação padrão por número do AB# (decrescente)
                 filtered.sort((a, b) => {
-                    const numA = parseInt((a.ab.match(/\d+/) || [0])[0], 10);
-                    const numB = parseInt((b.ab.match(/\d+/) || [0])[0], 10);
+                    const numA = parseInt((a.ad.match(/\d+/) || [0])[0], 10);
+                    const numB = parseInt((b.ad.match(/\d+/) || [0])[0], 10);
                     if (numA !== numB) {
                         return numB - numA;
                     }
                     return b.id - a.id;
                 });
 
-                runtimeState.currentData = filtered;
-                renderTable(filtered);
+                runtimeState.currentPRData = filtered;
+                renderPRTable(filtered);
             }
 
-            function renderTable(data) {
+            function executeDevOpsFilter(cards) {
+                // Deduplica cards pelo WorkItemId mantendo a revisão mais recente
+                const cardMap = new Map();
+                cards.forEach(card => {
+                    const existing = cardMap.get(card.WorkItemId);
+                    if (!existing || new Date(card.ChangedDate) > new Date(existing.ChangedDate)) {
+                        cardMap.set(card.WorkItemId, card);
+                    }
+                });
+
+                const uniqueCards = Array.from(cardMap.values());
+                // Ordena por data da alteração mais recente
+                uniqueCards.sort((a, b) => new Date(b.ChangedDate) - new Date(a.ChangedDate));
+
+                runtimeState.currentDevOpsData = uniqueCards;
+                renderDevOpsTable(uniqueCards);
+            }
+
+            function renderPRTable(data) {
                 tableBody.innerHTML = '';
-                resultCount.textContent = `${data.length} PR${data.length === 1 ? '' : 's'}`;
+                badgePrsCount.textContent = `${data.length}`;
 
                 if (data.length === 0) {
                     const currentPeriod = runtimeState.filters.period;
@@ -763,65 +1124,31 @@
                                         <i data-lucide="info" class="w-5 h-5"></i>
                                     </div>
                                     <div class="flex flex-col gap-1">
-                                        <span class="text-sm font-medium text-white">Nenhum registro encontrado</span>
+                                        <span class="text-sm font-medium text-white">Nenhum Pull Request encontrado</span>
                                         <span class="text-xs text-google-subtext leading-relaxed">
-                                            A API respondeu com <strong>${auditDiagnostics.totalFetched} pull requests</strong>, porém nenhum atendeu simultaneamente aos filtros de usuário e período.
+                                            Nenhum PR atendeu simultaneamente ao usuário <strong>${currentUser}</strong> e à janela <strong>${periodLabel}</strong>.
                                         </span>
                                     </div>
-
-                                    <div class="w-full bg-google-bg p-3.5 rounded-lg border border-google-border text-xs text-left flex flex-col gap-2">
-                                        <div class="flex items-center justify-between text-google-subtext">
-                                            <span>Filtro de Usuário:</span>
-                                            <span class="font-mono text-white">${currentUser}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-google-subtext">
-                                            <span>Janela de Período:</span>
-                                            <span class="text-white font-medium">${periodLabel}</span>
-                                        </div>
-                                        ${auditDiagnostics.dateFilteredCount > 0 ? `
-                                            <div class="text-[11px] text-amber-400/90 pt-1 border-t border-google-border/50">
-                                                💡 ${auditDiagnostics.dateFilteredCount} PR(s) foram descartados por estarem fora da janela: <strong>${periodLabel}</strong>.
-                                            </div>
-                                        ` : ''}
-                                    </div>
-
-                                    ${currentPeriod !== '30' ? `
-                                        <button type="button" id="expand-period-btn" class="w-full py-2 px-3 text-xs bg-google-surfaceHover hover:bg-google-border/60 text-white rounded-lg border border-google-border transition-colors cursor-pointer flex items-center justify-center gap-1.5 mt-1">
-                                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-google-primary"></i>
-                                            Expandir período para 15 ou 30 dias
-                                        </button>
-                                    ` : ''}
                                 </div>
                             </td>
                         </tr>
                     `;
-
                     if (window.lucide) {
                         try { lucide.createIcons(); } catch (e) { /* ignore */ }
                     }
-
-                    const expandBtn = document.getElementById('expand-period-btn');
-                    if (expandBtn) {
-                        expandBtn.addEventListener('click', () => {
-                            periodSelect.value = (currentPeriod === 'today' || currentPeriod === 'yesterday' || currentPeriod === '3') ? '7' : (currentPeriod === '7' ? '15' : '30');
-                            checkFiltersAndSearch();
-                        });
-                    }
-
                     return;
                 }
 
-                // Agrupamento dos PRs por AB#
+                // Agrupamento dos PRs por AD#
                 const groups = new Map();
                 data.forEach(item => {
-                    const key = item.ab || 'N/A';
+                    const key = item.ad || 'N/A';
                     if (!groups.has(key)) {
                         groups.set(key, []);
                     }
                     groups.get(key).push(item);
                 });
 
-                // Renderização agrupada com AB# na primeira coluna
                 groups.forEach((prs, adKey) => {
                     prs.forEach((item, index) => {
                         const tr = document.createElement('tr');
@@ -842,7 +1169,6 @@
                             day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         }) : item.actionTimestamp;
 
-                        // Primeira linha do grupo renderiza a célula do AB# com rowspan
                         let adCellHtml = '';
                         if (index === 0) {
                             adCellHtml = `
@@ -873,7 +1199,7 @@
                             </td>
                             <td class="p-4 text-google-subtext text-xs whitespace-nowrap">${formattedDate}</td>
                             <td class="p-4 text-right">
-                                <button class="view-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${item.id}" title="Ver Detalhes">
+                                <button class="view-pr-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${item.id}" title="Ver Detalhes">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
                             </td>
@@ -886,14 +1212,15 @@
                     try { lucide.createIcons(); } catch (e) { /* ignore */ }
                 }
 
-                document.querySelectorAll('.view-details-btn').forEach(btn => {
+                document.querySelectorAll('.view-pr-details-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
-                        const item = runtimeState.currentData.find(i => i.id === id);
+                        const item = runtimeState.currentPRData.find(i => i.id === id);
                         if (item) {
+                            detailsModalTitle.textContent = "Detalhes da Ação do PR";
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
-                                    <div><span class="text-google-subtext">AB#:</span> <span class="text-white font-medium font-mono">${item.ab}</span></div>
+                                    <div><span class="text-google-subtext">AD#:</span> <span class="text-white font-medium font-mono">${item.ad}</span></div>
                                     <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
                                     <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
                                     <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
@@ -907,7 +1234,131 @@
                     });
                 });
             }
+            function renderDevOpsTable(cards) {
+                devopsTableBody.innerHTML = '';
+                badgeDevOpsCount.textContent = `${cards.length}`;
 
+                if (cards.length === 0) {
+                    const currentPeriod = runtimeState.filters.period;
+                    const periodLabel = getPeriodLabel(currentPeriod);
+                    const isConfigured = runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.pat;
+
+                    devopsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="p-8 text-center">
+                                <div class="max-w-md mx-auto flex flex-col items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-google-surfaceHover flex items-center justify-center text-blue-400 border border-google-border">
+                                        <i data-lucide="trello" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-sm font-medium text-white">Nenhum card (User Story / Bug) encontrado</span>
+                                        <span class="text-xs text-google-subtext leading-relaxed">
+                                            Não há alterações registradas para o usuário no período <strong>${periodLabel}</strong>.
+                                        </span>
+                                    </div>
+                                    ${!isConfigured ? `
+                                        <div class="p-3 bg-google-bg rounded-lg border border-blue-500/30 text-xs text-left text-blue-300/90 flex flex-col gap-2 w-full mt-2">
+                                            <span class="font-medium text-white flex items-center gap-1.5">
+                                                <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400"></i>
+                                                Deseja consultar a API real do Azure DevOps?
+                                            </span>
+                                            <span>Configure sua Organização, Projeto e PAT no botão <strong>Configurar Credenciais</strong> para executar a query OData ao vivo.</span>
+                                            <button type="button" class="btn-primary text-xs py-1.5 mt-1" onclick="document.getElementById('open-api-modal').click()">
+                                                Configurar Azure DevOps Agora
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    if (window.lucide) {
+                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                    }
+                    return;
+                }
+
+                cards.forEach(card => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-google-surfaceHover/50 transition-colors border-b border-google-border/40';
+
+                    const isBug = card.WorkItemType === 'Bug';
+                    const badgeClass = isBug ? 'badge-devops-bug' : 'badge-devops-story';
+                    const iconName = isBug ? 'alert-triangle' : 'bookmark';
+
+                    const changedDate = new Date(card.ChangedDate);
+                    const formattedDate = !isNaN(changedDate.getTime()) ? changedDate.toLocaleString('pt-BR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : card.ChangedDate;
+
+                    const org = runtimeState.azure.org;
+                    const project = runtimeState.azure.project;
+                    const directUrl = (org && project) 
+                        ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${card.WorkItemId}`
+                        : null;
+
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono font-semibold text-white">
+                            <span class="px-2 py-0.5 rounded bg-google-surfaceHover border border-google-border text-xs text-google-primary">
+                                #${card.WorkItemId}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="badge-status border ${badgeClass} inline-flex items-center gap-1">
+                                <i data-lucide="${iconName}" class="w-3 h-3"></i>
+                                ${card.WorkItemType}
+                            </span>
+                        </td>
+                        <td class="p-4 font-medium text-white max-w-sm truncate" title="${card.Title}">
+                            ${card.Title}
+                        </td>
+                        <td class="p-4 text-google-subtext text-xs whitespace-nowrap">
+                            ${formattedDate}
+                        </td>
+                        <td class="p-4 text-right">
+                            <div class="inline-flex items-center gap-1.5 justify-end">
+                                ${directUrl ? `
+                                    <a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-google-primary rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" title="Abrir card no Azure DevOps">
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    </a>
+                                ` : ''}
+                                <button class="view-card-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${card.WorkItemId}" title="Ver Detalhes do Card">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    devopsTableBody.appendChild(tr);
+                });
+
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+
+                document.querySelectorAll('.view-card-details-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
+                        const card = runtimeState.currentDevOpsData.find(c => c.WorkItemId === id);
+                        if (card) {
+                            detailsModalTitle.textContent = "Detalhes do Card (Azure DevOps)";
+                            const changedByUser = card.ChangedBy?.UserName || runtimeState.azure.displayName || runtimeState.filters.user;
+                            detailsContent.innerHTML = `
+                                <div class="flex flex-col gap-2.5">
+                                    <div><span class="text-google-subtext">Card ID:</span> <span class="text-white font-medium font-mono">#${card.WorkItemId}</span></div>
+                                    <div><span class="text-google-subtext">Tipo de Item:</span> <span class="text-white font-medium">${card.WorkItemType}</span></div>
+                                    <div><span class="text-google-subtext">Título:</span> <span class="text-white font-medium">${card.Title}</span></div>
+                                    <div><span class="text-google-subtext">Alterado Por:</span> <span class="text-white font-medium">${changedByUser}</span></div>
+                                    <div><span class="text-google-subtext">Data da Alteração:</span> <span class="text-white font-medium">${new Date(card.ChangedDate).toLocaleString('pt-BR')}</span></div>
+                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">
+                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code>.
+                                    </div>
+                                </div>
+                            `;
+                            detailsModal.style.display = 'flex';
+                        }
+                    });
+                });
+            }
             let debounceTimer;
             const debouncedSearch = () => {
                 clearTimeout(debounceTimer);
