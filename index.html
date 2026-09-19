@@ -290,12 +290,12 @@
                 <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período para exibir a auditoria.</p>
             </div>
 
-            <!-- Tabela: AD# como primeira coluna agrupada -->
+            <!-- Tabela: AB# como primeira coluna agrupada -->
             <div id="table-container" class="hidden overflow-x-auto flex-1">
                 <table class="w-full text-left border-collapse min-w-[700px]">
                     <thead>
                         <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
-                            <th class="p-4 w-40">AD#</th>
+                            <th class="p-4 w-40">AB#</th>
                             <th class="p-4">PULL REQUEST</th>
                             <th class="p-4">STATUS</th>
                             <th class="p-4">DATA E HORÁRIO DA AÇÃO</th>
@@ -303,7 +303,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-body" class="divide-y divide-google-border text-sm">
-                        <!-- Preenchido dinamicamente via JS com agrupamento por AD# -->
+                        <!-- Preenchido dinamicamente via JS com agrupamento por AB# -->
                     </tbody>
                 </table>
             </div>
@@ -549,12 +549,12 @@
 
                         const basePR = fullPR || pr;
                         
-                        // Captura AD# ou AB# na descrição ou título
+                        // Captura AB# ou AB# na descrição ou título
                         const contentToInspect = `${basePR.body || ''} ${basePR.title || ''}`;
                         const adMatch = contentToInspect.match(/(?:AD|AB)#\s*\d+/i) || 
                                         contentToInspect.match(/(?:AD|AB)[-_\s]?\d+/i);
-                        const ad = adMatch 
-                            ? adMatch[0].toUpperCase().replace(/\s+/, '').replace(/^(?:AD|AB)(?=\d)/i, 'AD#') 
+                        const ab = adMatch 
+                            ? adMatch[0].toUpperCase().replace(/\s+/, '').replace(/^(?:AD|AB)(?=\d)/i, 'AB#') 
                             : 'N/A';
 
                         const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
@@ -616,7 +616,7 @@
                         return {
                             id: basePR.number,
                             title: basePR.title || `PR #${basePR.number}`,
-                            ad: ad,
+                            ab: ab,
                             repo: repoQuery,
                             actionUser: actionUser,
                             associatedUsers: associatedUsers,
@@ -732,10 +732,10 @@
                 auditDiagnostics.dateFilteredCount = dateExcluded;
                 auditDiagnostics.userFilteredCount = userExcluded;
 
-                // Ordenação padrão por número do AD# (decrescente)
+                // Ordenação padrão por número do AB# (decrescente)
                 filtered.sort((a, b) => {
-                    const numA = parseInt((a.ad.match(/\d+/) || [0])[0], 10);
-                    const numB = parseInt((b.ad.match(/\d+/) || [0])[0], 10);
+                    const numA = parseInt((a.ab.match(/\d+/) || [0])[0], 10);
+                    const numB = parseInt((b.ab.match(/\d+/) || [0])[0], 10);
                     if (numA !== numB) {
                         return numB - numA;
                     }
@@ -811,17 +811,17 @@
                     return;
                 }
 
-                // Agrupamento dos PRs por AD#
+                // Agrupamento dos PRs por AB#
                 const groups = new Map();
                 data.forEach(item => {
-                    const key = item.ad || 'N/A';
+                    const key = item.ab || 'N/A';
                     if (!groups.has(key)) {
                         groups.set(key, []);
                     }
                     groups.get(key).push(item);
                 });
 
-                // Renderização agrupada com AD# na primeira coluna
+                // Renderização agrupada com AB# na primeira coluna
                 groups.forEach((prs, adKey) => {
                     prs.forEach((item, index) => {
                         const tr = document.createElement('tr');
@@ -842,7 +842,7 @@
                             day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         }) : item.actionTimestamp;
 
-                        // Primeira linha do grupo renderiza a célula do AD# com rowspan
+                        // Primeira linha do grupo renderiza a célula do AB# com rowspan
                         let adCellHtml = '';
                         if (index === 0) {
                             adCellHtml = `
@@ -893,7 +893,7 @@
                         if (item) {
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
-                                    <div><span class="text-google-subtext">AD#:</span> <span class="text-white font-medium font-mono">${item.ad}</span></div>
+                                    <div><span class="text-google-subtext">AB#:</span> <span class="text-white font-medium font-mono">${item.ab}</span></div>
                                     <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
                                     <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
                                     <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
