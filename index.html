@@ -816,11 +816,14 @@
                     'Authorization': `Basic ${btoa(':' + pat)}`
                 };
 
+                // Formata a data estritamente como 'YYYY-MM-DD' para conformidade com a precisão de data do WIQL
+                const startDateOnly = startISO.split('T')[0];
+
                 // 1. Consulta WIQL em tempo real (latência zero) para obter work items alterados recentemente
                 try {
                     const typesWiql = ALLOWED_DEVOPS_TYPES.map(t => `'${t}'`).join(', ');
                     const wiqlQuery = {
-                        query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.ChangedDate], [System.ChangedBy] FROM WorkItems WHERE [System.WorkItemType] IN (${typesWiql}) AND [System.ChangedDate] >= '${startISO}' ORDER BY [System.ChangedDate] DESC`
+                        query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.ChangedDate], [System.ChangedBy] FROM WorkItems WHERE [System.WorkItemType] IN (${typesWiql}) AND [System.ChangedDate] >= '${startDateOnly}' ORDER BY [System.ChangedDate] DESC`
                     };
 
                     const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/wiql?api-version=7.0&$top=100`;
@@ -900,6 +903,9 @@
                             'Azure DevOps: Acesso Negado (403)',
                             'Seu usuário não possui permissão para consultar o projeto Azure DevOps especificado.'
                         );
+                    } else {
+                        const errData = await wiqlResp.json().catch(() => null);
+                        console.warn('WIQL query warning:', errData);
                     }
                 } catch (wiqlErr) {
                     console.warn('Consulta WIQL falhou, tentando Analytics OData:', wiqlErr);
