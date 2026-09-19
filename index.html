@@ -247,7 +247,7 @@
             <div class="flex items-center space-x-2">
                 <button id="open-api-modal" type="button" class="btn-header-action">
                     <i data-lucide="key" class="w-4 h-4 text-google-primary"></i>
-                    <span class="hidden sm:inline">Configurar Credenciais (GitHub & Azure)</span>
+                    <span class="hidden sm:inline">Configurar Conexões (GitHub & Azure)</span>
                 </button>
             </div>
         </div>
@@ -255,30 +255,31 @@
 
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
 
-        <!-- Card de Filtros -->
+        <!-- Card de Filtros Principal (4 Colunas) -->
         <div class="card-surface p-4 sm:p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-medium text-white flex items-center gap-2">
                     <i data-lucide="filter" class="w-4 h-4 text-google-primary"></i>
-                    Filtros
+                    Filtros de Auditoria
                 </h2>
                 <button id="clear-filters" type="button" class="text-xs text-google-subtext hover:text-white transition-colors underline cursor-pointer">
                     Limpar filtros
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <!-- Repositório GitHub (Obrigatório apenas para Pull Requests) -->
+            <!-- Grade com os 4 campos incluindo Nome no ADO -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- 1. Repositório GitHub (Obrigatório apenas para Pull Requests) -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-repo" class="form-label flex items-center justify-between">
                         <span>Repositório GitHub</span>
                         <span class="text-[10px] text-google-subtext/70">(obrigatório p/ PRs)</span>
                     </label>
-                    <input type="text" id="filter-repo" placeholder="Ex: org/repo ou usuario/projeto" class="form-control">
-                    <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong> (ex: org/projeto)</span>
+                    <input type="text" id="filter-repo" placeholder="Ex: org/projeto" class="form-control">
+                    <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong></span>
                 </div>
 
-                <!-- Usuário GitHub (Exclusivo para Pull Requests) -->
+                <!-- 2. Usuário GitHub (Exclusivo para Pull Requests) -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-user" class="form-label flex items-center justify-between">
                         <span>Usuário GitHub</span>
@@ -287,7 +288,16 @@
                     <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="form-control">
                 </div>
 
-                <!-- Período -->
+                <!-- 3. Nome de exibição no ADO (Exclusivo para Cards do Azure DevOps) -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="filter-ado-name" class="form-label flex items-center justify-between text-white font-medium">
+                        <span>Nome no ADO *</span>
+                        <span class="text-[10px] text-google-primary">(p/ Cards)</span>
+                    </label>
+                    <input type="text" id="filter-ado-name" placeholder="Ex: Bornhofen, Rubia ou Rubia Bornhofen" class="form-control">
+                </div>
+
+                <!-- 4. Período (Padrão: Últimos 3 dias) -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-period" class="form-label">Período *</label>
                     <select id="filter-period" class="form-control">
@@ -345,7 +355,7 @@
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
                 <h4 id="search-prompt-title" class="text-sm font-medium text-white mb-1">Preencha os campos para iniciar</h4>
-                <p id="search-prompt-desc" class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu Nome de exibição no ADO nas credenciais.</p>
+                <p id="search-prompt-desc" class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub para os PRs ou o Nome no ADO para auditar os cards.</p>
             </div>
 
             <!-- Aba 1: Tabela de Pull Requests do GitHub -->
@@ -372,7 +382,7 @@
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-google-border text-sm">
-                            <!-- Preenchido dinamicamente via JS com agrupamento por AD# -->
+                            <!-- Preenchido dinamicamente via JS -->
                         </tbody>
                     </table>
                 </div>
@@ -413,13 +423,13 @@
 
     </main>
 
-    <!-- Modal de Configuração de Credenciais (GitHub + Azure DevOps) -->
+    <!-- Modal de Configuração de Conexões e Credenciais Técnicas -->
     <div id="api-modal" class="modal-overlay modal-backdrop flex" style="display: none;">
         <div class="modal-card max-w-lg max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-medium text-white flex items-center gap-2">
                     <i data-lucide="key" class="w-5 h-5 text-google-primary"></i>
-                    Configurar Credenciais
+                    Configurar Conexões & Tokens
                 </h3>
                 <button id="close-api-modal" type="button" class="btn-icon-close">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -454,33 +464,24 @@
                 <div class="flex flex-col gap-3">
                     <div class="flex items-center gap-2 text-white font-medium text-sm">
                         <i data-lucide="cloud" class="w-4 h-4 text-blue-400"></i>
-                        <span>Azure DevOps (Analytics OData)</span>
+                        <span>Azure DevOps (Organização, Projeto e PAT)</span>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="flex flex-col gap-1.5">
                             <label for="azure-org-input" class="form-label">Organização ({org}) *</label>
-                            <input type="text" id="azure-org-input" placeholder="Ex: minha-empresa" class="form-control font-mono text-xs">
+                            <input type="text" id="azure-org-input" placeholder="Ex: minha-organizacao" class="form-control font-mono text-xs">
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label for="azure-project-input" class="form-label">Projeto ({project}) *</label>
-                            <input type="text" id="azure-project-input" placeholder="Ex: Core-Platform" class="form-control font-mono text-xs">
+                            <input type="text" id="azure-project-input" placeholder="Ex: Project" class="form-control font-mono text-xs">
                         </div>
                     </div>
 
                     <div class="flex flex-col gap-1.5">
                         <label for="azure-pat-input" class="form-label">Personal Access Token (PAT) Azure DevOps *</label>
                         <input type="password" id="azure-pat-input" placeholder="Cole seu PAT do Azure DevOps..." class="form-control font-mono text-xs">
-                        <span class="text-[11px] text-google-subtext/80">Necessário para acessar o endpoint Analytics OData v3.0 do Azure DevOps.</span>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <label for="azure-name-input" class="form-label text-white font-medium flex items-center justify-between">
-                            <span>Nome de exibição no ADO *</span>
-                            <span class="text-[10px] text-google-primary">(obrigatório p/ Cards)</span>
-                        </label>
-                        <input type="text" id="azure-name-input" placeholder="Ex: Bornhofen, Rubia ou Rubia Bornhofen" class="form-control text-xs">
-                        <span class="text-[11px] text-google-subtext/80">Obrigatório. O sistema padroniza automaticamente para o formato americano (<code>Sobrenome, Nome</code>).</span>
+                        <span class="text-[11px] text-google-subtext/80">Necessário para autenticação nas APIs REST e Analytics OData do Azure.</span>
                     </div>
 
                     <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1">
@@ -489,8 +490,8 @@
                             Permissões necessárias para o PAT do Azure DevOps:
                         </span>
                         <ul class="list-disc pl-4 space-y-0.5 text-google-subtext/90">
-                            <li><strong>Analytics:</strong> Read</li>
                             <li><strong>Work Items:</strong> Read</li>
+                            <li><strong>Analytics:</strong> Read</li>
                         </ul>
                     </div>
                 </div>
@@ -529,12 +530,12 @@
             azure: {
                 org: '',
                 project: '',
-                pat: '',
-                userName: ''
+                pat: ''
             },
             filters: {
                 repo: '',
                 user: '',
+                adoName: '',
                 period: '3'
             },
             activeTab: 'prs', // 'prs' ou 'devops'
@@ -542,7 +543,7 @@
             currentDevOpsData: []
         };
 
-        // Formata e converte qualquer formato de nome para o padrão americano do ADO: "Sobrenome, Nome"
+        // Formata e converte qualquer formato de nome para o padrão americano: "Sobrenome, Nome"
         function formatAdoAmericanName(input) {
             if (!input) return '';
             const trimmed = input.trim();
@@ -561,10 +562,49 @@
             return trimmed;
         }
 
+        // Função de correspondência resiliente para identificar o usuário no Azure DevOps
+        function matchesAdoUser(changedBy, targetInput) {
+            if (!changedBy || !targetInput) return false;
+            
+            const normalize = (str) => (str || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .trim();
+
+            const targetRaw = normalize(targetInput);
+            const targetAmerican = normalize(formatAdoAmericanName(targetInput));
+            
+            const candidateName = normalize(changedBy.UserName || changedBy.displayName || changedBy.name || '');
+            const candidateEmail = normalize(changedBy.UserEmail || changedBy.uniqueName || changedBy.email || '');
+
+            // 1. Checagem direta por formato padrão americano ou bruto
+            if (candidateName) {
+                if (candidateName === targetAmerican || candidateName === targetRaw) return true;
+                if (candidateName.includes(targetAmerican) || targetAmerican.includes(candidateName)) return true;
+                if (candidateName.includes(targetRaw) || targetRaw.includes(candidateName)) return true;
+            }
+
+            // 2. Checagem por e-mail ou prefixo de login
+            if (candidateEmail) {
+                const noSpaceTarget = targetRaw.replace(/[\s,]+/g, '');
+                if (candidateEmail.includes(noSpaceTarget) || noSpaceTarget.includes(candidateEmail)) return true;
+            }
+
+            // 3. Checagem por tokens (Ex: "Bornhofen" e "Rubia" presentes no nome do usuário)
+            const tokens = targetRaw.split(/[\s,]+/).filter(t => t.length >= 2);
+            if (tokens.length >= 2) {
+                const allMatch = tokens.every(tok => candidateName.includes(tok) || candidateEmail.includes(tok));
+                if (allMatch) return true;
+            }
+
+            return false;
+        }
+
         // Tipos estritamente permitidos para cards do Azure DevOps
         const ALLOWED_DEVOPS_TYPES = ['Bug', 'User Story', 'Feature', 'Issue'];
 
-        // Mock de demonstração caso esteja sem conexão direta ou para testes locais
+        // Mock para demonstração local
         const mockGitHubDatabase = [
             {
                 id: 1042,
@@ -607,7 +647,7 @@
                 Title: "Implementar suporte a timeout resiliente no fluxo OAuth",
                 WorkItemType: "User Story",
                 State: "Active",
-                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
+                ChangedDate: new Date(Date.now() - 10 * 60000).toISOString(), // 10 min atrás
                 ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
@@ -615,7 +655,7 @@
                 Title: "Erro de esgotamento no pool de conexões com PostgreSQL",
                 WorkItemType: "Bug",
                 State: "Resolved",
-                ChangedDate: new Date(Date.now() - 2 * 86400000).toISOString(),
+                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
                 ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
@@ -623,7 +663,7 @@
                 Title: "Suporte a autenticação via passkeys biométricos",
                 WorkItemType: "Feature",
                 State: "Proposed",
-                ChangedDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+                ChangedDate: new Date(Date.now() - 2 * 86400000).toISOString(),
                 ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
@@ -631,7 +671,7 @@
                 Title: "Lentidão intermitente na consulta de relatórios contábeis",
                 WorkItemType: "Issue",
                 State: "Active",
-                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
+                ChangedDate: new Date(Date.now() - 30 * 60000).toISOString(),
                 ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             }
         ];
@@ -643,6 +683,7 @@
 
             const repoInput = document.getElementById('filter-repo');
             const userInput = document.getElementById('filter-user');
+            const adoNameInput = document.getElementById('filter-ado-name');
             const periodSelect = document.getElementById('filter-period');
             const clearFiltersBtn = document.getElementById('clear-filters');
             
@@ -675,7 +716,6 @@
             const azureOrgInput = document.getElementById('azure-org-input');
             const azureProjectInput = document.getElementById('azure-project-input');
             const azurePatInput = document.getElementById('azure-pat-input');
-            const azureNameInput = document.getElementById('azure-name-input');
 
             const detailsModal = document.getElementById('details-modal');
             const closeDetailsModalBtn = document.getElementById('close-details-modal');
@@ -689,16 +729,16 @@
             const closeApiErrorBtn = document.getElementById('close-api-error');
 
             function showErrorBanner(title, message) {
-                apiErrorTitle.textContent = title;
-                apiErrorMessage.innerHTML = message;
-                apiErrorBanner.classList.remove('hidden');
+                if (apiErrorTitle) apiErrorTitle.textContent = title;
+                if (apiErrorMessage) apiErrorMessage.innerHTML = message;
+                if (apiErrorBanner) apiErrorBanner.classList.remove('hidden');
                 if (window.lucide) {
                     try { lucide.createIcons(); } catch (e) { /* ignore */ }
                 }
             }
 
             function hideErrorBanner() {
-                apiErrorBanner.classList.add('hidden');
+                if (apiErrorBanner) apiErrorBanner.classList.add('hidden');
             }
 
             if (closeApiErrorBtn) {
@@ -706,8 +746,8 @@
             }
 
             // Controle de Abas
-            tabPrsBtn.addEventListener('click', () => switchTab('prs'));
-            tabDevOpsBtn.addEventListener('click', () => switchTab('devops'));
+            if (tabPrsBtn) tabPrsBtn.addEventListener('click', () => switchTab('prs'));
+            if (tabDevOpsBtn) tabDevOpsBtn.addEventListener('click', () => switchTab('devops'));
 
             function switchTab(tab) {
                 runtimeState.activeTab = tab;
@@ -722,23 +762,23 @@
             }
 
             function updateAzureIndicator() {
-                const standardName = formatAdoAmericanName(runtimeState.azure.userName);
-                if (runtimeState.azure.org && runtimeState.azure.project && standardName) {
+                if (!azureConfigIndicator) return;
+                if (runtimeState.azure.org && runtimeState.azure.project) {
                     azureConfigIndicator.innerHTML = `
-                        <span class="text-emerald-400 flex items-center gap-1" title="${standardName}">
+                        <span class="text-emerald-400 flex items-center gap-1">
                             <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project} (${standardName})
+                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project}
                         </span>
                     `;
                 } else {
                     azureConfigIndicator.innerHTML = `
                         <button type="button" id="quick-config-azure" class="text-google-primary hover:underline flex items-center gap-1 cursor-pointer">
                             <i data-lucide="settings" class="w-3 h-3"></i>
-                            Configurar Org, Projeto e Nome ADO
+                            Configurar Org, Projeto e PAT do ADO
                         </button>
                     `;
                     const quickBtn = document.getElementById('quick-config-azure');
-                    if (quickBtn) {
+                    if (quickBtn && openApiModalBtn) {
                         quickBtn.addEventListener('click', () => openApiModalBtn.click());
                     }
                 }
@@ -748,38 +788,44 @@
             }
             updateAzureIndicator();
 
-            openApiModalBtn.addEventListener('click', () => {
-                if (apiTokenInput) apiTokenInput.value = runtimeState.apiKey;
-                if (azureOrgInput) azureOrgInput.value = runtimeState.azure.org;
-                if (azureProjectInput) azureProjectInput.value = runtimeState.azure.project;
-                if (azurePatInput) azurePatInput.value = runtimeState.azure.pat;
-                if (azureNameInput) azureNameInput.value = runtimeState.azure.userName;
+            if (openApiModalBtn) {
+                openApiModalBtn.addEventListener('click', () => {
+                    if (apiTokenInput) apiTokenInput.value = runtimeState.apiKey;
+                    if (azureOrgInput) azureOrgInput.value = runtimeState.azure.org;
+                    if (azureProjectInput) azureProjectInput.value = runtimeState.azure.project;
+                    if (azurePatInput) azurePatInput.value = runtimeState.azure.pat;
 
-                apiModal.style.display = 'flex';
-                if (window.lucide) {
-                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                }
-            });
+                    if (apiModal) apiModal.style.display = 'flex';
+                    if (window.lucide) {
+                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                    }
+                });
+            }
 
-            closeApiModalBtn.addEventListener('click', () => {
-                apiModal.style.display = 'none';
-            });
+            if (closeApiModalBtn) {
+                closeApiModalBtn.addEventListener('click', () => {
+                    if (apiModal) apiModal.style.display = 'none';
+                });
+            }
 
-            saveApiModalBtn.addEventListener('click', () => {
-                if (apiTokenInput) runtimeState.apiKey = apiTokenInput.value.trim();
-                if (azureOrgInput) runtimeState.azure.org = azureOrgInput.value.trim();
-                if (azureProjectInput) runtimeState.azure.project = azureProjectInput.value.trim();
-                if (azurePatInput) runtimeState.azure.pat = azurePatInput.value.trim();
-                if (azureNameInput) runtimeState.azure.userName = azureNameInput.value.trim();
+            if (saveApiModalBtn) {
+                saveApiModalBtn.addEventListener('click', () => {
+                    if (apiTokenInput) runtimeState.apiKey = apiTokenInput.value.trim();
+                    if (azureOrgInput) runtimeState.azure.org = azureOrgInput.value.trim();
+                    if (azureProjectInput) runtimeState.azure.project = azureProjectInput.value.trim();
+                    if (azurePatInput) runtimeState.azure.pat = azurePatInput.value.trim();
 
-                apiModal.style.display = 'none';
-                updateAzureIndicator();
-                checkFiltersAndSearch();
-            });
+                    if (apiModal) apiModal.style.display = 'none';
+                    updateAzureIndicator();
+                    checkFiltersAndSearch();
+                });
+            }
 
-            closeDetailsModalBtn.addEventListener('click', () => {
-                detailsModal.style.display = 'none';
-            });
+            if (closeDetailsModalBtn) {
+                closeDetailsModalBtn.addEventListener('click', () => {
+                    if (detailsModal) detailsModal.style.display = 'none';
+                });
+            }
 
             function getDateRangeForPeriod(periodValue) {
                 const now = new Date();
@@ -795,7 +841,7 @@
                 } else {
                     const days = parseInt(periodValue, 10) || 3;
                     start = new Date(Date.now() - (days * 86400000));
-                    end = now;
+                    end = new Date(Date.now() + 600000); // 10 min de margem futura para diferenças de fuso
                 }
 
                 return {
@@ -825,107 +871,144 @@
             }
 
             async function fetchAzureDevOpsCards(periodValue) {
-                const { org, project, pat, userName } = runtimeState.azure;
-                const { startISO, endISO } = getDateRangeForPeriod(periodValue);
+                const { org, project, pat } = runtimeState.azure;
+                const { adoName } = runtimeState.filters;
+                const { startISO } = getDateRangeForPeriod(periodValue);
 
-                if (!userName) {
+                if (!adoName) {
                     return { missingName: true, items: [] };
                 }
 
-                // Normaliza sempre para o padrão americano do ADO: "Sobrenome, Nome"
-                const targetStandardName = formatAdoAmericanName(userName);
-                const targetClean = targetStandardName.toLowerCase();
-
-                // Fallback com mock caso não haja credenciais do Azure
+                // Se não houver credenciais reais, utiliza o mock local para demonstração
                 if (!org || !project || !pat) {
                     const filteredMock = mockAzureDevOpsDatabase.filter(card => {
                         if (!ALLOWED_DEVOPS_TYPES.includes(card.WorkItemType)) return false;
                         const cardDate = new Date(card.ChangedDate);
                         if (isNaN(cardDate.getTime()) || !isDateInPeriod(cardDate, periodValue)) return false;
-
-                        // Correspondência com o padrão americano
-                        const cardUserStandard = formatAdoAmericanName(card.ChangedBy?.UserName || '').toLowerCase();
-                        return cardUserStandard === targetClean;
+                        return matchesAdoUser(card.ChangedBy, adoName);
                     });
                     return { missingName: false, items: filteredMock };
                 }
 
+                const collectedCards = [];
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${btoa(':' + pat)}`
+                };
+
+                // 1. TENTATIVA 1: API Nativa WIQL (Tempo Real - Captura comentários e edições feitas há segundos)
                 try {
-                    // Consulta estritamente os tipos permitidos: User Story, Bug, Feature, Issue
+                    const typesWiql = ALLOWED_DEVOPS_TYPES.map(t => `'${t}'`).join(', ');
+                    const wiqlQuery = {
+                        query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.ChangedDate], [System.ChangedBy] FROM WorkItems WHERE [System.WorkItemType] IN (${typesWiql}) AND [System.ChangedDate] >= '${startISO}' ORDER BY [System.ChangedDate] DESC`
+                    };
+
+                    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/wiql?api-version=7.0&$top=150`;
+                    const wiqlResp = await fetch(wiqlUrl, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(wiqlQuery)
+                    });
+
+                    if (wiqlResp.ok) {
+                        const wiqlData = await wiqlResp.json();
+                        const workItemRefs = wiqlData.workItems || [];
+
+                        if (workItemRefs.length > 0) {
+                            const ids = workItemRefs.slice(0, 100).map(w => w.id).join(',');
+                            const fields = 'System.Id,System.Title,System.WorkItemType,System.State,System.ChangedDate,System.ChangedBy';
+                            const detailsUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems?ids=${ids}&fields=${fields}&api-version=7.0`;
+                            
+                            const detailsResp = await fetch(detailsUrl, { headers });
+                            if (detailsResp.ok) {
+                                const detailsData = await detailsResp.json();
+                                (detailsData.value || []).forEach(item => {
+                                    const f = item.fields || {};
+                                    const changedByObj = f['System.ChangedBy'] || {};
+                                    if (matchesAdoUser(changedByObj, adoName)) {
+                                        collectedCards.push({
+                                            WorkItemId: f['System.Id'] || item.id,
+                                            Title: f['System.Title'] || 'Sem título',
+                                            WorkItemType: f['System.WorkItemType'],
+                                            State: f['System.State'],
+                                            ChangedDate: f['System.ChangedDate'],
+                                            ChangedBy: {
+                                                UserName: changedByObj.displayName || changedByObj.name || '',
+                                                UserEmail: changedByObj.uniqueName || ''
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } catch (wiqlErr) {
+                    console.warn('Consulta WIQL falhou, tentando Analytics OData:', wiqlErr);
+                }
+
+                // 2. TENTATIVA 2: Analytics OData v3.0 com $expand correto
+                try {
                     const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
-                    const safeName = targetStandardName.replace(/'/g, "''");
-                    
                     const filterOData = [
-                        `ChangedBy/UserName eq '${safeName}'`,
                         `ChangedDate ge ${startISO}`,
-                        `ChangedDate lt ${endISO}`,
                         `(${typesFilter})`
                     ].join(' and ');
 
-                    const selectFields = `WorkItemId,Title,WorkItemType,State,ChangedDate,ChangedBy`;
-                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$orderby=ChangedDate desc`;
+                    const selectFields = `WorkItemId,Title,WorkItemType,State,ChangedDate`;
+                    const expandClause = `ChangedBy($select=UserName,UserEmail)`;
+                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$expand=${expandClause}&$orderby=ChangedDate desc&$top=200`;
 
-                    const headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Basic ${btoa(':' + pat)}`
-                    };
+                    const odataResp = await fetch(odataUrl, { headers });
 
-                    let response = await fetch(odataUrl, { headers });
+                    if (odataResp.ok) {
+                        const jsonResult = await odataResp.json();
+                        const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
 
-                    // Se o servidor rejeitar o filtro de nome com vírgula na URL (ex: 400), consulta pelo período/tipos e faz correspondência no client
-                    if (!response.ok && response.status === 400) {
-                        const fallbackFilter = [
-                            `ChangedDate ge ${startISO}`,
-                            `ChangedDate lt ${endISO}`,
-                            `(${typesFilter})`
-                        ].join(' and ');
-                        const fallbackUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(fallbackFilter)}&$select=${selectFields}&$orderby=ChangedDate desc`;
-                        response = await fetch(fallbackUrl, { headers });
-                    }
-
-                    if (!response.ok) {
-                        if (response.status === 401) {
+                        rawItems.forEach(item => {
+                            if (matchesAdoUser(item.ChangedBy, adoName)) {
+                                collectedCards.push({
+                                    WorkItemId: item.WorkItemId,
+                                    Title: item.Title,
+                                    WorkItemType: item.WorkItemType,
+                                    State: item.State,
+                                    ChangedDate: item.ChangedDate,
+                                    ChangedBy: item.ChangedBy || {}
+                                });
+                            }
+                        });
+                    } else if (collectedCards.length === 0) {
+                        if (odataResp.status === 401) {
                             showErrorBanner(
                                 'Azure DevOps: PAT inválido ou expirado (401)',
-                                'O Personal Access Token (PAT) do Azure DevOps foi recusado. Verifique a chave e garanta as permissões <em>Analytics: Read</em>.'
+                                'O Personal Access Token (PAT) do Azure DevOps foi recusado. Verifique a chave e garanta as permissões <em>Analytics: Read</em> e <em>Work Items: Read</em>.'
                             );
-                        } else if (response.status === 403) {
+                        } else if (odataResp.status === 403) {
                             showErrorBanner(
                                 'Azure DevOps: Acesso Negado (403)',
-                                'Seu usuário não possui permissão para consultar o Analytics OData no projeto Azure DevOps especificado.'
+                                'Seu usuário não possui permissão para consultar o projeto Azure DevOps especificado.'
                             );
-                        } else if (response.status === 404) {
+                        } else if (odataResp.status === 404) {
                             showErrorBanner(
                                 'Azure DevOps: Organização ou Projeto não encontrado (404)',
                                 `Não foi possível encontrar a organização <strong>${org}</strong> ou o projeto <strong>${project}</strong> no Azure DevOps.`
                             );
                         }
-                        return { missingName: false, items: [] };
                     }
-
-                    const jsonResult = await response.json();
-                    const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
-
-                    // Correspondência estrita considerando o padrão americano "Sobrenome, Nome"
-                    const matchedItems = rawItems.filter(item => {
-                        const rawUserName = item.ChangedBy?.UserName || '';
-                        const itemStandardName = formatAdoAmericanName(rawUserName).toLowerCase();
-                        return itemStandardName === targetClean || rawUserName.toLowerCase() === targetClean;
-                    });
-
-                    return { missingName: false, items: matchedItems };
-                } catch (err) {
-                    showErrorBanner('Azure DevOps: Falha de Conexão', `Não foi possível consultar o Azure DevOps Analytics: ${err.message}. Verifique se o PAT está correto.`);
-                    return { missingName: false, items: [] };
+                } catch (odataErr) {
+                    if (collectedCards.length === 0) {
+                        showErrorBanner('Azure DevOps: Falha de Conexão', `Não foi possível consultar os cards: ${odataErr.message}.`);
+                    }
                 }
+
+                return { missingName: false, items: collectedCards };
             }
 
             async function fetchPRsForAudit(repoQuery, targetUser) {
                 if (!repoQuery.includes('/') || repoQuery.startsWith('/') || repoQuery.endsWith('/')) {
-                    repoFormatHint.classList.remove('hidden');
+                    if (repoFormatHint) repoFormatHint.classList.remove('hidden');
                     return [];
                 } else {
-                    repoFormatHint.classList.add('hidden');
+                    if (repoFormatHint) repoFormatHint.classList.add('hidden');
                 }
 
                 try {
@@ -960,7 +1043,7 @@
                         } else if (resp && resp.status === 401) {
                             showErrorBanner(
                                 'Token GitHub inválido ou expirado (401 Unauthorized)',
-                                'O token do GitHub configurado foi recusado. Clique em <strong>Configurar Credenciais</strong> e informe um token válido.'
+                                'O token do GitHub configurado foi recusado. Clique em <strong>Configurar Conexões</strong> e informe um token válido.'
                             );
                             return [];
                         } else if (resp && resp.status === 403) {
@@ -997,7 +1080,7 @@
 
                         const basePR = fullPR || pr;
                         
-                        // Captura AD# ou AB# na descrição ou no título
+                        // Captura AD# ou AB# no corpo ou título
                         const contentToInspect = `${basePR.body || ''} ${basePR.title || ''}`;
                         const adMatch = contentToInspect.match(/(?:AD|AB)#\s*\d+/i) || 
                                         contentToInspect.match(/(?:AD|AB)[-_\s]?\d+/i);
@@ -1082,49 +1165,50 @@
             }
 
             async function checkFiltersAndSearch() {
-                const repo = repoInput.value.trim();
-                const user = userInput.value.trim();
-                const period = periodSelect.value;
+                const repo = repoInput ? repoInput.value.trim() : '';
+                const user = userInput ? userInput.value.trim() : '';
+                const adoName = adoNameInput ? adoNameInput.value.trim() : '';
+                const period = periodSelect ? periodSelect.value : '3';
 
-                runtimeState.filters = { repo, user, period };
+                runtimeState.filters = { repo, user, adoName, period };
 
                 const hasPRFilters = user.length > 0;
                 const isDevOpsTab = runtimeState.activeTab === 'devops';
 
                 hideErrorBanner();
 
-                // Na aba Cards Azure DevOps, o Usuário GitHub NUNCA é solicitado.
+                // Na aba Cards Azure DevOps, a busca usa o Nome no ADO
                 if (isDevOpsTab) {
-                    searchPrompt.classList.add('hidden');
-                    tabPrsView.classList.add('hidden');
-                    tabDevOpsView.classList.remove('hidden');
+                    if (searchPrompt) searchPrompt.classList.add('hidden');
+                    if (tabPrsView) tabPrsView.classList.add('hidden');
+                    if (tabDevOpsView) tabDevOpsView.classList.remove('hidden');
 
-                    loadingSpinner.classList.remove('hidden');
-                    loadingText.textContent = 'Consultando Cards...';
+                    if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+                    if (loadingText) loadingText.textContent = 'Consultando Cards...';
 
                     try {
                         const devopsResult = await fetchAzureDevOpsCards(period);
                         executeDevOpsFilter(devopsResult);
                     } finally {
-                        loadingSpinner.classList.add('hidden');
+                        if (loadingSpinner) loadingSpinner.classList.add('hidden');
                     }
                     return;
                 }
 
                 // Na aba Pull Requests (GitHub):
-                tabDevOpsView.classList.add('hidden');
+                if (tabDevOpsView) tabDevOpsView.classList.add('hidden');
 
                 if (hasPRFilters) {
-                    searchPrompt.classList.add('hidden');
-                    tabPrsView.classList.remove('hidden');
+                    if (searchPrompt) searchPrompt.classList.add('hidden');
+                    if (tabPrsView) tabPrsView.classList.remove('hidden');
 
-                    loadingSpinner.classList.remove('hidden');
-                    loadingText.textContent = 'Consultando PRs...';
+                    if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+                    if (loadingText) loadingText.textContent = 'Consultando PRs...';
 
                     try {
                         if (repo.length > 0) {
-                            prsRepoRequiredPrompt.classList.add('hidden');
-                            prsTableWrapper.classList.remove('hidden');
+                            if (prsRepoRequiredPrompt) prsRepoRequiredPrompt.classList.add('hidden');
+                            if (prsTableWrapper) prsTableWrapper.classList.remove('hidden');
                             let prDataset = [];
                             if (repo.includes('/')) {
                                 prDataset = await fetchPRsForAudit(repo, user);
@@ -1133,25 +1217,20 @@
                             }
                             executePRFilter(prDataset);
                         } else {
-                            prsRepoRequiredPrompt.classList.remove('hidden');
-                            prsTableWrapper.classList.add('hidden');
-                            badgePrsCount.textContent = '-';
+                            if (prsRepoRequiredPrompt) prsRepoRequiredPrompt.classList.remove('hidden');
+                            if (prsTableWrapper) prsTableWrapper.classList.add('hidden');
+                            if (badgePrsCount) badgePrsCount.textContent = '-';
                         }
                     } finally {
-                        loadingSpinner.classList.add('hidden');
+                        if (loadingSpinner) loadingSpinner.classList.add('hidden');
                     }
                 } else {
-                    // Estado inicial da aba de Pull Requests
-                    repoFormatHint.classList.add('hidden');
-                    tabPrsView.classList.add('hidden');
-                    searchPrompt.classList.remove('hidden');
-                    if (searchPromptTitle) {
-                        searchPromptTitle.textContent = 'Informe o Usuário GitHub para os PRs';
-                    }
-                    if (searchPromptDesc) {
-                        searchPromptDesc.textContent = 'Preencha o campo Usuário GitHub e o Repositório para auditar os Pull Requests.';
-                    }
-                    badgePrsCount.textContent = '0';
+                    if (repoFormatHint) repoFormatHint.classList.add('hidden');
+                    if (tabPrsView) tabPrsView.classList.add('hidden');
+                    if (searchPrompt) searchPrompt.classList.remove('hidden');
+                    if (searchPromptTitle) searchPromptTitle.textContent = 'Informe o Usuário GitHub para os PRs';
+                    if (searchPromptDesc) searchPromptDesc.textContent = 'Preencha o Usuário GitHub e o Repositório para auditar os Pull Requests.';
+                    if (badgePrsCount) badgePrsCount.textContent = '0';
                 }
             }
 
@@ -1193,8 +1272,9 @@
             }
 
             function renderPRTable(data) {
+                if (!tableBody) return;
                 tableBody.innerHTML = '';
-                badgePrsCount.textContent = `${data.length}`;
+                if (badgePrsCount) badgePrsCount.textContent = `${data.length}`;
 
                 if (data.length === 0) {
                     const currentPeriod = runtimeState.filters.period;
@@ -1307,7 +1387,7 @@
                     btn.addEventListener('click', (e) => {
                         const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
                         const item = runtimeState.currentPRData.find(p => p.id === id);
-                        if (item) {
+                        if (item && detailsModalTitle && detailsContent && detailsModal) {
                             detailsModalTitle.textContent = "Detalhes do Pull Request";
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
@@ -1357,8 +1437,9 @@
             }
 
             function renderDevOpsTable(cards, missingName = false) {
+                if (!devopsTableBody) return;
                 devopsTableBody.innerHTML = '';
-                badgeDevOpsCount.textContent = `${cards.length}`;
+                if (badgeDevOpsCount) badgeDevOpsCount.textContent = `${cards.length}`;
 
                 if (missingName) {
                     devopsTableBody.innerHTML = `
@@ -1369,12 +1450,12 @@
                                         <i data-lucide="user" class="w-5 h-5"></i>
                                     </div>
                                     <div class="flex flex-col gap-1.5 w-full">
-                                        <span class="text-sm font-medium text-white">Nome de exibição no ADO não configurado</span>
+                                        <span class="text-sm font-medium text-white">Nome de exibição no ADO não preenchido</span>
                                         <span class="text-xs text-google-subtext leading-relaxed">
-                                            A auditoria de cards do Azure DevOps exige o preenchimento do seu Nome de exibição no ADO. A busca utiliza o padrão americano (<code>Sobrenome, Nome</code>).
+                                            Preencha o campo <strong>Nome no ADO *</strong> nos filtros acima. Padroniza automaticamente para o padrão americano (<code>Sobrenome, Nome</code>).
                                         </span>
-                                        <button type="button" class="btn-primary text-xs py-2 mt-2" onclick="document.getElementById('open-api-modal').click()">
-                                            Configurar Nome no Azure DevOps
+                                        <button type="button" class="btn-primary text-xs py-2 mt-2 w-fit mx-auto" onclick="document.getElementById('filter-ado-name').focus()">
+                                            Preencher Nome no ADO
                                         </button>
                                     </div>
                                 </div>
@@ -1389,7 +1470,7 @@
 
                 if (cards.length === 0) {
                     const currentPeriod = runtimeState.filters.period;
-                    const standardName = formatAdoAmericanName(runtimeState.azure.userName);
+                    const standardName = formatAdoAmericanName(runtimeState.filters.adoName);
                     const periodLabel = getPeriodLabel(currentPeriod);
                     const isConfigured = runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.pat;
 
@@ -1417,7 +1498,7 @@
                                                 <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400"></i>
                                                 Deseja consultar a API real do Azure DevOps?
                                             </span>
-                                            <span>Configure sua Organização, Projeto e PAT no botão <strong>Configurar Credenciais</strong> para executar a query OData ao vivo.</span>
+                                            <span>Configure sua Organização, Projeto e PAT no botão <strong>Configurar Conexões</strong> no cabeçalho.</span>
                                             <button type="button" class="btn-primary text-xs py-1.5 mt-1" onclick="document.getElementById('open-api-modal').click()">
                                                 Configurar Azure DevOps Agora
                                             </button>
@@ -1510,11 +1591,11 @@
                     btn.addEventListener('click', (e) => {
                         const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
                         const card = runtimeState.currentDevOpsData.find(c => c.WorkItemId === id);
-                        if (card) {
+                        if (card && detailsModalTitle && detailsContent && detailsModal) {
                             detailsModalTitle.textContent = "Detalhes do Card (Azure DevOps)";
                             const userLabel = card.ChangedBy?.UserName 
                                 ? card.ChangedBy.UserName 
-                                : formatAdoAmericanName(runtimeState.azure.userName);
+                                : formatAdoAmericanName(runtimeState.filters.adoName);
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
                                     <div><span class="text-google-subtext">Card ID:</span> <span class="text-white font-medium font-mono">#${card.WorkItemId}</span></div>
@@ -1524,7 +1605,7 @@
                                     <div><span class="text-google-subtext">Alterado Por:</span> <span class="text-white font-medium">${userLabel}</span></div>
                                     <div><span class="text-google-subtext">Data da Alteração:</span> <span class="text-white font-medium">${new Date(card.ChangedDate).toLocaleString('pt-BR')}</span></div>
                                     <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">
-                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code> com correspondência pelo padrão americano de nome (<code>ChangedBy/UserName</code>).
+                                        Card capturado via query Azure DevOps com correspondência pelo padrão americano de nome (<code>${formatAdoAmericanName(runtimeState.filters.adoName)}</code>).
                                     </div>
                                 </div>
                             `;
@@ -1540,18 +1621,22 @@
                 debounceTimer = setTimeout(checkFiltersAndSearch, 250);
             };
 
-            repoInput.addEventListener('input', debouncedSearch);
-            userInput.addEventListener('input', debouncedSearch);
-            periodSelect.addEventListener('change', checkFiltersAndSearch);
+            if (repoInput) repoInput.addEventListener('input', debouncedSearch);
+            if (userInput) userInput.addEventListener('input', debouncedSearch);
+            if (adoNameInput) adoNameInput.addEventListener('input', debouncedSearch);
+            if (periodSelect) periodSelect.addEventListener('change', checkFiltersAndSearch);
 
-            clearFiltersBtn.addEventListener('click', () => {
-                repoInput.value = '';
-                userInput.value = '';
-                periodSelect.value = '3';
-                hideErrorBanner();
-                repoFormatHint.classList.add('hidden');
-                checkFiltersAndSearch();
-            });
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', () => {
+                    if (repoInput) repoInput.value = '';
+                    if (userInput) userInput.value = '';
+                    if (adoNameInput) adoNameInput.value = '';
+                    if (periodSelect) periodSelect.value = '3';
+                    hideErrorBanner();
+                    if (repoFormatHint) repoFormatHint.classList.add('hidden');
+                    checkFiltersAndSearch();
+                });
+            }
         });
     </script>
 </body>
