@@ -796,7 +796,7 @@
                 }
             }
 
-            async function fetchAzureDevOpsCards(periodValue) {
+            async function fetchAzureDevOpsCards(periodValue, signal = null) {
                 const { org, project, pat } = runtimeState.azure;
                 const { adoName } = runtimeState.filters;
                 const { startISO } = getDateRangeForPeriod(periodValue);
@@ -830,7 +830,8 @@
                     const wiqlResp = await fetch(wiqlUrl, {
                         method: 'POST',
                         headers,
-                        body: JSON.stringify(wiqlQuery)
+                        body: JSON.stringify(wiqlQuery),
+                        signal: signal || undefined
                     });
 
                     if (wiqlResp.ok) {
@@ -839,9 +840,10 @@
 
                         // 2. Para cada card alterado, consulta os updates para obter todas as alterações no período
                         for (const ref of workItemRefs.slice(0, 35)) {
+                            if (signal && signal.aborted) return { missingConfig: false, missingName: false, items: [] };
                             try {
                                 const updatesUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/${ref.id}/updates?api-version=7.0`;
-                                const updatesResp = await fetch(updatesUrl, { headers });
+                                const updatesResp = await fetch(updatesUrl, { headers, signal: signal || undefined });
                                 
                                 if (updatesResp.ok) {
                                     const updatesData = await updatesResp.json();
@@ -867,7 +869,7 @@
                                     });
                                 }
                             } catch (itemErr) {
-                                console.warn(`Falha ao obter updates do card #${ref.id}:`, itemErr);
+                                if (itemErr.name !== 'AbortError') console.warn(`Falha ao obter updates do card #${ref.id}:`, itemErr);
                             }
                         }
 
@@ -876,7 +878,7 @@
                             const distinctIds = Array.from(new Set(collectedUpdates.map(u => u.WorkItemId)));
                             const fields = 'System.Id,System.Title,System.WorkItemType,System.State';
                             const detailsUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems?ids=${distinctIds.join(',')}&fields=${fields}&api-version=7.0`;
-                            const detailsResp = await fetch(detailsUrl, { headers });
+                            const detailsResp = await fetch(detailsUrl, { headers, signal: signal || undefined });
                             if (detailsResp.ok) {
                                 const detailsData = await detailsResp.json();
                                 const mapInfo = new Map();
@@ -908,7 +910,7 @@
                         console.warn('WIQL query warning:', errData);
                     }
                 } catch (wiqlErr) {
-                    console.warn('Consulta WIQL falhou, tentando Analytics OData:', wiqlErr);
+                    if (wiqlErr.name !== 'AbortError') console.warn('Consulta WIQL falhou, tentando Analytics OData:', wiqlErr);
                 }
 
                 // 3. Fallback OData v3.0 caso WIQL não retorne
@@ -924,7 +926,7 @@
                         const expandClause = `ChangedBy($select=UserName,UserEmail)`;
                         const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$expand=${expandClause}&$orderby=ChangedDate desc&$top=200`;
 
-                        const odataResp = await fetch(odataUrl, { headers });
+                        const odataResp = await fetch(odataUrl, { headers, signal: signal || undefined });
 
                         if (odataResp.ok) {
                             const jsonResult = await odataResp.json();
@@ -945,14 +947,14 @@
                             });
                         }
                     } catch (odataErr) {
-                        console.warn('OData Analytics fallback falhou:', odataErr);
+                        if (odataErr.name !== 'AbortError') console.warn('OData Analytics fallback falhou:', odataErr);
                     }
                 }
 
                 return { missingConfig: false, missingName: false, items: collectedUpdates };
             }
 
-            async function fetchPRsForAudit(repoQuery, targetUser) {
+            async function fetchPRsForAudit(repoQuery, targetUser, periodValue = '3', signal = null) {
                 if (!repoQuery.includes('/') || repoQuery.startsWith('/') || repoQuery.endsWith('/')) {
                     if (repoFormatHint) repoFormatHint.classList.remove('hidden');
                     return [];
@@ -970,11 +972,13 @@
 
                     const cleanUser = targetUser.replace(/^@/, '').trim().toLowerCase();
                     const simplifiedUser = cleanUser.replace(/[-_.]/g, '');
+                    const { startISO } = getDateRangeForPeriod(periodValue);
+                    const startDateOnly = startISO.split('T')[0];
 
                     const searchPromises = [
-                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
-                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
-                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=50&sort=updated&direction=desc`, { headers }).catch(() => null)
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=50&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=50&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
+                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=30&sort=updated&direction=desc`, { headers, signal: signal || undefined }).catch(() => null)
                     ];
 
                     const responses = await Promise.all(searchPromises);
@@ -1010,17 +1014,18 @@
                         }
                     }
 
-                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 40);
+                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 30);
 
                     const enrichedList = await Promise.all(candidatePRs.map(async (pr) => {
+                        if (signal && signal.aborted) return null;
                         const prNumber = pr.number;
                         let fullPR = null;
                         let reviews = [];
 
                         try {
                             const [fullPrResp, reviewsResp] = await Promise.all([
-                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}`, { headers }).catch(() => null),
-                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=30`, { headers }).catch(() => null)
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}`, { headers, signal: signal || undefined }).catch(() => null),
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=30`, { headers, signal: signal || undefined }).catch(() => null)
                             ]);
 
                             if (fullPrResp && fullPrResp.ok) fullPR = await fullPrResp.json();
@@ -1105,14 +1110,23 @@
                         };
                     }));
 
-                    return enrichedList;
+                    return enrichedList.filter(Boolean);
                 } catch (err) {
-                    showErrorBanner('GitHub: Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
+                    if (err.name !== 'AbortError') {
+                        showErrorBanner('GitHub: Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
+                    }
                     return [];
                 }
             }
 
             async function checkFiltersAndSearch() {
+                // Cancela imediatamente qualquer requisição anterior que ainda esteja em trânsito
+                if (activeAbortController) {
+                    activeAbortController.abort();
+                }
+                activeAbortController = new AbortController();
+                const signal = activeAbortController.signal;
+
                 const repo = repoInput ? repoInput.value.trim() : '';
                 const user = userInput ? userInput.value.trim() : '';
                 const adoName = adoNameInput ? adoNameInput.value.trim() : '';
@@ -1125,7 +1139,7 @@
 
                 hideErrorBanner();
 
-                // Aba Cards Azure DevOps: busca usando Nome no ADO e Período
+                // Aba Cards Azure DevOps
                 if (isDevOpsTab) {
                     if (searchPrompt) searchPrompt.classList.add('hidden');
                     if (tabPrsView) tabPrsView.classList.add('hidden');
@@ -1135,15 +1149,21 @@
                     if (loadingText) loadingText.textContent = 'Consultando Cards...';
 
                     try {
-                        const devopsResult = await fetchAzureDevOpsCards(period);
-                        executeDevOpsFilter(devopsResult);
+                        const devopsResult = await fetchAzureDevOpsCards(period, signal);
+                        if (!signal.aborted) {
+                            executeDevOpsFilter(devopsResult);
+                        }
+                    } catch (e) {
+                        if (e.name !== 'AbortError') console.warn(e);
                     } finally {
-                        if (loadingSpinner) loadingSpinner.classList.add('hidden');
+                        if (!signal.aborted && loadingSpinner) {
+                            loadingSpinner.classList.add('hidden');
+                        }
                     }
                     return;
                 }
 
-                // Aba Pull Requests (GitHub):
+                // Aba Pull Requests (GitHub)
                 if (tabDevOpsView) tabDevOpsView.classList.add('hidden');
 
                 if (hasPRFilters) {
@@ -1164,16 +1184,22 @@
                                 if (repoFormatHint) repoFormatHint.classList.add('hidden');
                                 if (prsRepoRequiredPrompt) prsRepoRequiredPrompt.classList.add('hidden');
                                 if (prsTableWrapper) prsTableWrapper.classList.remove('hidden');
-                                const prDataset = await fetchPRsForAudit(repo, user);
-                                executePRFilter(prDataset);
+                                const prDataset = await fetchPRsForAudit(repo, user, period, signal);
+                                if (!signal.aborted) {
+                                    executePRFilter(prDataset);
+                                }
                             }
                         } else {
                             if (prsRepoRequiredPrompt) prsRepoRequiredPrompt.classList.remove('hidden');
                             if (prsTableWrapper) prsTableWrapper.classList.add('hidden');
                             if (badgePrsCount) badgePrsCount.textContent = '-';
                         }
+                    } catch (e) {
+                        if (e.name !== 'AbortError') console.warn(e);
                     } finally {
-                        if (loadingSpinner) loadingSpinner.classList.add('hidden');
+                        if (!signal.aborted && loadingSpinner) {
+                            loadingSpinner.classList.add('hidden');
+                        }
                     }
                 } else {
                     if (repoFormatHint) repoFormatHint.classList.add('hidden');
@@ -1602,7 +1628,8 @@
             let debounceTimer;
             const debouncedSearch = () => {
                 clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(checkFiltersAndSearch, 250);
+                // Aumentado de 250ms para 500ms para aguardar o término da digitação
+                debounceTimer = setTimeout(checkFiltersAndSearch, 500);
             };
 
             if (repoInput) repoInput.addEventListener('input', debouncedSearch);
@@ -1612,6 +1639,8 @@
 
             if (clearFiltersBtn) {
                 clearFiltersBtn.addEventListener('click', () => {
+                    queryCache.clear();
+                    if (activeAbortController) activeAbortController.abort();
                     if (repoInput) repoInput.value = '';
                     if (userInput) userInput.value = '';
                     if (adoNameInput) adoNameInput.value = '';
