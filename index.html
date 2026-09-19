@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
-    <title>Auditoria de Pull Requests e Cards</title>
+    <title>Auditoria de Pull Requests e Cards ADO</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -55,7 +55,7 @@
         .modal-backdrop {
             position: fixed;
             inset: 0;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(4px);
             z-index: 50;
             align-items: center;
@@ -278,10 +278,13 @@
                     <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong> (ex: org/projeto)</span>
                 </div>
 
-                <!-- Usuário da Ação -->
+                <!-- Usuário GitHub (Exclusivo para Pull Requests) -->
                 <div class="flex flex-col gap-1.5">
-                    <label for="filter-user" class="form-label">Usuário da Ação *</label>
-                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen ou Nome Sobrenome" class="form-control">
+                    <label for="filter-user" class="form-label flex items-center justify-between">
+                        <span>Usuário GitHub</span>
+                        <span class="text-[10px] text-google-subtext/70">(exclusivo p/ PRs)</span>
+                    </label>
+                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="form-control">
                 </div>
 
                 <!-- Período -->
@@ -342,7 +345,7 @@
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
                 <h4 class="text-sm font-medium text-white mb-1">Preencha os campos para iniciar</h4>
-                <p class="text-xs text-google-subtext max-w-sm">Informe o Usuário da Ação e o Período. O repositório é necessário para consultar os Pull Requests do GitHub.</p>
+                <p class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu E-mail corporativo nas credenciais.</p>
             </div>
 
             <!-- Aba 1: Tabela de Pull Requests do GitHub -->
@@ -472,9 +475,12 @@
                     </div>
 
                     <div class="flex flex-col gap-1.5">
-                        <label for="azure-username-input" class="form-label">Nome de Exibição no Azure DevOps (Opcional)</label>
-                        <input type="text" id="azure-username-input" placeholder="Ex: Rubia Bornhofen (Deixe vazio para usar o mesmo do filtro)" class="form-control text-xs">
-                        <span class="text-[11px] text-google-subtext/80">O Azure DevOps Analytics compara com <code class="font-mono text-google-primary">ChangedBy/UserName</code> (geralmente Nome Completo ou E-mail da conta corporativa).</span>
+                        <label for="azure-email-input" class="form-label text-white font-medium flex items-center justify-between">
+                            <span>E-mail no Azure DevOps *</span>
+                            <span class="text-[10px] text-google-primary">(obrigatório p/ Cards)</span>
+                        </label>
+                        <input type="email" id="azure-email-input" placeholder="Ex: rubia.bornhofen@empresa.com" class="form-control text-xs">
+                        <span class="text-[11px] text-google-subtext/80">Obrigatório. A consulta aos cards é realizada pela correspondência <strong>estrita e exata</strong> deste e-mail (<code class="font-mono text-google-primary">ChangedBy/UserEmail</code>).</span>
                     </div>
 
                     <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1">
@@ -524,12 +530,12 @@
                 org: '',
                 project: '',
                 pat: '',
-                displayName: ''
+                email: ''
             },
             filters: {
                 repo: '',
                 user: '',
-                period: '7'
+                period: '3'
             },
             activeTab: 'prs', // 'prs' ou 'devops'
             currentPRData: [],
@@ -583,39 +589,23 @@
                 WorkItemType: "User Story",
                 State: "Active",
                 ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
-                ChangedBy: { UserName: "alice.silva" }
+                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 4850,
                 Title: "Erro de esgotamento no pool de conexões com PostgreSQL",
                 WorkItemType: "Bug",
                 State: "Resolved",
-                ChangedDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-                ChangedBy: { UserName: "bruno.souza" }
-            },
-            {
-                WorkItemId: 4720,
-                Title: "Webhook listener perdendo eventos de concorrência",
-                WorkItemType: "Bug",
-                State: "Closed",
-                ChangedDate: new Date(Date.now() - 4 * 86400000).toISOString(),
-                ChangedBy: { UserName: "rubiabornhofen" }
-            },
-            {
-                WorkItemId: 4910,
-                Title: "Migração de componentes do Design System para v2",
-                WorkItemType: "User Story",
-                State: "Active",
-                ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
-                ChangedBy: { UserName: "rubiabornhofen" }
+                ChangedDate: new Date(Date.now() - 2 * 86400000).toISOString(),
+                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 5120,
                 Title: "Suporte a autenticação via passkeys biométricos",
                 WorkItemType: "Feature",
                 State: "Proposed",
-                ChangedDate: new Date(Date.now() - 2 * 86400000).toISOString(),
-                ChangedBy: { UserName: "rubiabornhofen" }
+                ChangedDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 5088,
@@ -623,7 +613,7 @@
                 WorkItemType: "Issue",
                 State: "Active",
                 ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
-                ChangedBy: { UserName: "rubiabornhofen" }
+                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
             }
         ];
 
@@ -645,6 +635,9 @@
             const tableBody = document.getElementById('table-body');
             const devopsTableBody = document.getElementById('devops-table-body');
 
+            const searchPromptTitle = document.getElementById('search-prompt-title');
+            const searchPromptDesc = document.getElementById('search-prompt-desc');
+
             const tabPrsBtn = document.getElementById('tab-prs-btn');
             const tabDevOpsBtn = document.getElementById('tab-devops-btn');
             const badgePrsCount = document.getElementById('badge-prs-count');
@@ -663,7 +656,7 @@
             const azureOrgInput = document.getElementById('azure-org-input');
             const azureProjectInput = document.getElementById('azure-project-input');
             const azurePatInput = document.getElementById('azure-pat-input');
-            const azureUsernameInput = document.getElementById('azure-username-input');
+            const azureEmailInput = document.getElementById('azure-email-input');
 
             const detailsModal = document.getElementById('details-modal');
             const closeDetailsModalBtn = document.getElementById('close-details-modal');
@@ -702,29 +695,26 @@
                 if (tab === 'prs') {
                     tabPrsBtn.classList.add('active');
                     tabDevOpsBtn.classList.remove('active');
-                    tabPrsView.classList.remove('hidden');
-                    tabDevOpsView.classList.add('hidden');
                 } else {
                     tabDevOpsBtn.classList.add('active');
                     tabPrsBtn.classList.remove('active');
-                    tabDevOpsView.classList.remove('hidden');
-                    tabPrsView.classList.add('hidden');
                 }
+                checkFiltersAndSearch();
             }
 
             function updateAzureIndicator() {
-                if (runtimeState.azure.org && runtimeState.azure.project) {
+                if (runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.email) {
                     azureConfigIndicator.innerHTML = `
-                        <span class="text-emerald-400 flex items-center gap-1">
+                        <span class="text-emerald-400 flex items-center gap-1" title="${runtimeState.azure.email}">
                             <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project}
+                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project} (${runtimeState.azure.email})
                         </span>
                     `;
                 } else {
                     azureConfigIndicator.innerHTML = `
                         <button type="button" id="quick-config-azure" class="text-google-primary hover:underline flex items-center gap-1 cursor-pointer">
                             <i data-lucide="settings" class="w-3 h-3"></i>
-                            Configurar Org & Projeto
+                            Configurar Org, Projeto e E-mail
                         </button>
                     `;
                     const quickBtn = document.getElementById('quick-config-azure');
@@ -743,7 +733,7 @@
                 azureOrgInput.value = runtimeState.azure.org;
                 azureProjectInput.value = runtimeState.azure.project;
                 azurePatInput.value = runtimeState.azure.pat;
-                azureUsernameInput.value = runtimeState.azure.displayName;
+                azureEmailInput.value = runtimeState.azure.email;
 
                 apiModal.style.display = 'flex';
                 if (window.lucide) {
@@ -760,7 +750,7 @@
                 runtimeState.azure.org = azureOrgInput.value.trim();
                 runtimeState.azure.project = azureProjectInput.value.trim();
                 runtimeState.azure.pat = azurePatInput.value.trim();
-                runtimeState.azure.displayName = azureUsernameInput.value.trim();
+                runtimeState.azure.email = azureEmailInput.value.trim();
 
                 apiModal.style.display = 'none';
                 updateAzureIndicator();
@@ -814,20 +804,15 @@
                 }
             }
 
-            function normalizeString(str) {
-                return (str || '')
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]/g, '');
-            }
-
-            async function fetchAzureDevOpsCards(targetUser, periodValue) {
-                const { org, project, pat, displayName } = runtimeState.azure;
+            async function fetchAzureDevOpsCards(periodValue) {
+                const { org, project, pat, email } = runtimeState.azure;
                 const { startISO, endISO } = getDateRangeForPeriod(periodValue);
 
-                const queryUser = (displayName || targetUser).replace(/^@/, '').trim();
-                const normalizedTarget = normalizeString(queryUser);
+                if (!email) {
+                    return { missingEmail: true, items: [] };
+                }
+
+                const targetEmailClean = email.trim().toLowerCase();
 
                 // Fallback com mock caso não haja credenciais do Azure
                 if (!org || !project || !pat) {
@@ -836,16 +821,20 @@
                         const cardDate = new Date(card.ChangedDate);
                         if (isNaN(cardDate.getTime()) || !isDateInPeriod(cardDate, periodValue)) return false;
 
-                        const cleanCardUser = normalizeString(card.ChangedBy?.UserName || '');
-                        return cleanCardUser.includes(normalizedTarget) || normalizedTarget.includes(cleanCardUser);
+                        // Correspondência ESTRITA por e-mail
+                        const cardEmail = (card.ChangedBy?.UserEmail || '').trim().toLowerCase();
+                        return cardEmail === targetEmailClean;
                     });
-                    return filteredMock;
+                    return { missingEmail: false, items: filteredMock };
                 }
 
                 try {
                     // Consulta estritamente os tipos permitidos: User Story, Bug, Feature, Issue
                     const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
+                    const safeEmail = email.replace(/'/g, "''");
+                    
                     const filterOData = [
+                        `ChangedBy/UserEmail eq '${safeEmail}'`,
                         `ChangedDate ge ${startISO}`,
                         `ChangedDate lt ${endISO}`,
                         `(${typesFilter})`
@@ -859,7 +848,18 @@
                         'Authorization': `Basic ${btoa(':' + pat)}`
                     };
 
-                    const response = await fetch(odataUrl, { headers });
+                    let response = await fetch(odataUrl, { headers });
+
+                    // Se o servidor rejeitar o filtro de e-mail na URL (ex: 400), consulta pelo período/tipos e faz correspondência estrita no client
+                    if (!response.ok && response.status === 400) {
+                        const fallbackFilter = [
+                            `ChangedDate ge ${startISO}`,
+                            `ChangedDate lt ${endISO}`,
+                            `(${typesFilter})`
+                        ].join(' and ');
+                        const fallbackUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${fallbackFilter}&$select=${selectFields}&$orderby=ChangedDate desc`;
+                        response = await fetch(fallbackUrl, { headers });
+                    }
 
                     if (!response.ok) {
                         if (response.status === 401) {
@@ -878,23 +878,22 @@
                                 `Não foi possível encontrar a organização <strong>${org}</strong> ou o projeto <strong>${project}</strong> no Azure DevOps.`
                             );
                         }
-                        return [];
+                        return { missingEmail: false, items: [] };
                     }
 
                     const jsonResult = await response.json();
                     const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
 
-                    // Filtragem flexível de usuário em memória
+                    // Correspondência estrita e exata por e-mail (sem aproximações)
                     const matchedItems = rawItems.filter(item => {
-                        const userName = item.ChangedBy?.UserName || '';
-                        const normUser = normalizeString(userName);
-                        return normUser.includes(normalizedTarget) || normalizedTarget.includes(normUser);
+                        const itemEmail = (item.ChangedBy?.UserEmail || '').trim().toLowerCase();
+                        return itemEmail === targetEmailClean;
                     });
 
-                    return matchedItems;
+                    return { missingEmail: false, items: matchedItems };
                 } catch (err) {
                     showErrorBanner('Azure DevOps: Falha de Conexão', `Não foi possível consultar o Azure DevOps Analytics: ${err.message}. Verifique se o PAT está correto.`);
-                    return [];
+                    return { missingEmail: false, items: [] };
                 }
             }
 
@@ -1066,24 +1065,40 @@
 
                 runtimeState.filters = { repo, user, period };
 
-                // A busca é disparada se o Usuário e o Período estiverem preenchidos (Repositório é obrigatório apenas para PRs)
-                if (user.length > 0 && period) {
-                    hideErrorBanner();
-                    searchPrompt.classList.add('hidden');
-                    loadingSpinner.classList.remove('hidden');
-                    loadingText.textContent = 'Consultando...';
+                const hasPRFilters = user.length > 0;
+                const isDevOpsTab = runtimeState.activeTab === 'devops';
 
-                    // Mostra as abas
-                    if (runtimeState.activeTab === 'prs') {
-                        tabPrsView.classList.remove('hidden');
-                        tabDevOpsView.classList.add('hidden');
-                    } else {
-                        tabDevOpsView.classList.remove('hidden');
-                        tabPrsView.classList.add('hidden');
-                    }
+                hideErrorBanner();
+
+                // Na aba Cards Azure DevOps, o Usuário GitHub NUNCA é solicitado.
+                if (isDevOpsTab) {
+                    searchPrompt.classList.add('hidden');
+                    tabPrsView.classList.add('hidden');
+                    tabDevOpsView.classList.remove('hidden');
+
+                    loadingSpinner.classList.remove('hidden');
+                    loadingText.textContent = 'Consultando Cards...';
 
                     try {
-                        // 1. Processa Pull Requests (somente se repositório for preenchido)
+                        const devopsResult = await fetchAzureDevOpsCards(period);
+                        executeDevOpsFilter(devopsResult);
+                    } finally {
+                        loadingSpinner.classList.add('hidden');
+                    }
+                    return;
+                }
+
+                // Na aba Pull Requests (GitHub):
+                tabDevOpsView.classList.add('hidden');
+
+                if (hasPRFilters) {
+                    searchPrompt.classList.add('hidden');
+                    tabPrsView.classList.remove('hidden');
+
+                    loadingSpinner.classList.remove('hidden');
+                    loadingText.textContent = 'Consultando PRs...';
+
+                    try {
                         if (repo.length > 0) {
                             prsRepoRequiredPrompt.classList.add('hidden');
                             prsTableWrapper.classList.remove('hidden');
@@ -1095,27 +1110,21 @@
                             }
                             executePRFilter(prDataset);
                         } else {
-                            // Repositório vazio: avisa especificamente na aba de PRs sem bloquear a aba do Azure
                             prsRepoRequiredPrompt.classList.remove('hidden');
                             prsTableWrapper.classList.add('hidden');
                             badgePrsCount.textContent = '-';
                         }
-
-                        // 2. Processa Cards do Azure DevOps (funciona com ou sem repositório GitHub)
-                        const devopsCards = await fetchAzureDevOpsCards(user, period);
-                        executeDevOpsFilter(devopsCards);
-
                     } finally {
                         loadingSpinner.classList.add('hidden');
                     }
                 } else {
-                    hideErrorBanner();
+                    // Estado inicial da aba de Pull Requests
                     repoFormatHint.classList.add('hidden');
-                    searchPrompt.classList.remove('hidden');
                     tabPrsView.classList.add('hidden');
-                    tabDevOpsView.classList.add('hidden');
+                    searchPrompt.classList.remove('hidden');
+                    searchPromptTitle.textContent = 'Informe o Usuário GitHub para os PRs';
+                    searchPromptDesc.textContent = 'Preencha o campo Usuário GitHub e o Repositório para auditar os Pull Requests.';
                     badgePrsCount.textContent = '0';
-                    badgeDevOpsCount.textContent = '0';
                 }
             }
 
@@ -1254,7 +1263,7 @@
                             </td>
                             <td class="p-4 text-google-subtext text-xs whitespace-nowrap">${formattedDate}</td>
                             <td class="p-4 text-right">
-                                <button class="view-pr-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${item.id}" title="Ver Detalhes">
+                                <button class="view-pr-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${item.id}" title="Ver Detalhes do PR">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
                             </td>
@@ -1270,18 +1279,20 @@
                 document.querySelectorAll('.view-pr-details-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
-                        const item = runtimeState.currentPRData.find(i => i.id === id);
+                        const item = runtimeState.currentPRData.find(p => p.id === id);
                         if (item) {
-                            detailsModalTitle.textContent = "Detalhes da Ação do PR";
+                            detailsModalTitle.textContent = "Detalhes do Pull Request";
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
                                     <div><span class="text-google-subtext">AD#:</span> <span class="text-white font-medium font-mono">${item.ad}</span></div>
-                                    <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
-                                    <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
-                                    <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
+                                    <div><span class="text-google-subtext">PR ID:</span> <span class="text-white font-medium">#${item.id}</span></div>
+                                    <div><span class="text-google-subtext">Título:</span> <span class="text-white font-medium">${item.title}</span></div>
                                     <div><span class="text-google-subtext">Status:</span> <span class="text-white font-medium">${item.status.toUpperCase()}</span></div>
+                                    <div><span class="text-google-subtext">Usuário da Ação:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
                                     <div><span class="text-google-subtext">Data da Ação:</span> <span class="text-white font-medium">${new Date(item.actionTimestamp).toLocaleString('pt-BR')}</span></div>
-                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">${item.details}</div>
+                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">
+                                        ${item.details}
+                                    </div>
                                 </div>
                             `;
                             detailsModal.style.display = 'flex';
@@ -1290,7 +1301,15 @@
                 });
             }
 
-            function executeDevOpsFilter(cards) {
+            function executeDevOpsFilter(result) {
+                if (result.missingEmail) {
+                    runtimeState.currentDevOpsData = [];
+                    renderDevOpsTable([], true);
+                    return;
+                }
+
+                const cards = result.items || [];
+
                 // Filtra estritamente por tipos permitidos
                 const strictlyTyped = cards.filter(c => ALLOWED_DEVOPS_TYPES.includes(c.WorkItemType));
 
@@ -1307,16 +1326,43 @@
                 uniqueCards.sort((a, b) => new Date(b.ChangedDate) - new Date(a.ChangedDate));
 
                 runtimeState.currentDevOpsData = uniqueCards;
-                renderDevOpsTable(uniqueCards);
+                renderDevOpsTable(uniqueCards, false);
             }
 
-            function renderDevOpsTable(cards) {
+            function renderDevOpsTable(cards, missingEmail = false) {
                 devopsTableBody.innerHTML = '';
                 badgeDevOpsCount.textContent = `${cards.length}`;
 
+                if (missingEmail) {
+                    devopsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="p-8 text-center">
+                                <div class="max-w-md mx-auto flex flex-col items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-google-surfaceHover flex items-center justify-center text-amber-400 border border-google-border">
+                                        <i data-lucide="mail" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex flex-col gap-1.5 w-full">
+                                        <span class="text-sm font-medium text-white">E-mail do Azure DevOps não configurado</span>
+                                        <span class="text-xs text-google-subtext leading-relaxed">
+                                            A auditoria de cards do Azure DevOps exige a correspondência exata pelo e-mail da sua conta corporativa.
+                                        </span>
+                                        <button type="button" class="btn-primary text-xs py-2 mt-2" onclick="document.getElementById('open-api-modal').click()">
+                                            Configurar E-mail do Azure DevOps
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    if (window.lucide) {
+                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                    }
+                    return;
+                }
+
                 if (cards.length === 0) {
                     const currentPeriod = runtimeState.filters.period;
-                    const currentUser = runtimeState.filters.user;
+                    const azureEmail = runtimeState.azure.email;
                     const periodLabel = getPeriodLabel(currentPeriod);
                     const isConfigured = runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.pat;
 
@@ -1333,7 +1379,7 @@
                                             Não há alterações registradas para os filtros aplicados:
                                         </span>
                                         <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs text-left text-google-subtext flex flex-col gap-1">
-                                            <div><span class="text-white font-medium">Usuário:</span> ${currentUser}</div>
+                                            <div><span class="text-white font-medium">E-mail:</span> ${azureEmail}</div>
                                             <div><span class="text-white font-medium">Período:</span> ${periodLabel}</div>
                                             <div><span class="text-white font-medium">Tipos Permitidos:</span> Bug, User Story, Feature, Issue</div>
                                         </div>
@@ -1439,17 +1485,19 @@
                         const card = runtimeState.currentDevOpsData.find(c => c.WorkItemId === id);
                         if (card) {
                             detailsModalTitle.textContent = "Detalhes do Card (Azure DevOps)";
-                            const changedByUser = card.ChangedBy?.UserName || runtimeState.azure.displayName || runtimeState.filters.user;
+                            const userLabel = card.ChangedBy?.UserEmail 
+                                ? `${card.ChangedBy.UserName || ''} (${card.ChangedBy.UserEmail})` 
+                                : (runtimeState.azure.email || 'N/A');
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
                                     <div><span class="text-google-subtext">Card ID:</span> <span class="text-white font-medium font-mono">#${card.WorkItemId}</span></div>
                                     <div><span class="text-google-subtext">Tipo de Item:</span> <span class="text-white font-medium">${card.WorkItemType}</span></div>
                                     <div><span class="text-google-subtext">Título:</span> <span class="text-white font-medium">${card.Title}</span></div>
                                     <div><span class="text-google-subtext">Estado Atual:</span> <span class="text-white font-medium">${card.State || 'N/A'}</span></div>
-                                    <div><span class="text-google-subtext">Alterado Por:</span> <span class="text-white font-medium">${changedByUser}</span></div>
+                                    <div><span class="text-google-subtext">Alterado Por:</span> <span class="text-white font-medium">${userLabel}</span></div>
                                     <div><span class="text-google-subtext">Data da Alteração:</span> <span class="text-white font-medium">${new Date(card.ChangedDate).toLocaleString('pt-BR')}</span></div>
                                     <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">
-                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code>.
+                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code> com correspondência estrita por e-mail.
                                     </div>
                                 </div>
                             `;
@@ -1472,7 +1520,7 @@
             clearFiltersBtn.addEventListener('click', () => {
                 repoInput.value = '';
                 userInput.value = '';
-                periodSelect.value = '7';
+                periodSelect.value = '3';
                 hideErrorBanner();
                 repoFormatHint.classList.add('hidden');
                 checkFiltersAndSearch();
