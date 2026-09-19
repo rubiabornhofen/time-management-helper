@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
+    <title>Auditoria de Pull Requests</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        google: {
+                            bg: '#131314',
+                            surface: '#1e1f20',
+                            surfaceHover: '#2d2e30',
+                            border: '#444746',
+                            text: '#e3e3e3',
+                            subtext: '#c4c7c5',
+                            primary: '#8ab4f8',
+                            primaryHover: '#aecbfa',
+                            accent: '#a8c7fa',
+                            card: '#1e1f20',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #131314;
+            color: #e3e3e3;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Modais */
+        .modal-overlay[style*="display: none"] {
+            display: none !important;
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-card {
+            background-color: #1e1f20;
+            border: 1px solid #444746;
+            border-radius: 0.75rem;
+            width: 100%;
+            padding: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Cartões e Contêineres */
+        .card-surface {
+            background-color: #1e1f20;
+            border: 1px solid #444746;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        /* Formulários e Inputs */
+        .form-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #c4c7c5;
+        }
+        .form-control {
+            background-color: #131314;
+            border: 1px solid #444746;
+            color: #e3e3e3;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            display: block;
+            width: 100%;
+            padding: 0.625rem;
+            outline: none;
+            transition: all 0.15s ease-in-out;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 1px #8ab4f8;
+            border-color: #8ab4f8;
+        }
+        .form-control::placeholder {
+            color: rgba(196, 199, 197, 0.4);
+        }
+
+        /* Botões */
+        .btn-header-action {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            background-color: #2d2e30;
+            color: #e3e3e3;
+            border-radius: 0.5rem;
+            border: 1px solid #444746;
+            transition: background-color 0.15s ease;
+            cursor: pointer;
+        }
+        .btn-header-action:hover {
+            background-color: rgba(68, 71, 70, 0.5);
+        }
+
+        .btn-primary {
+            padding: 0.5rem 1rem;
+            background-color: #8ab4f8;
+            color: #131314;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.15s ease;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background-color: #aecbfa;
+        }
+
+        .btn-icon-close {
+            color: #c4c7c5;
+            padding: 0.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .btn-icon-close:hover {
+            color: #ffffff;
+        }
+
+        /* Badges de Status */
+        .badge-status {
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-width: 1px;
+            display: inline-block;
+        }
+        .badge-status-merged {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .badge-status-reviewed {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+        .badge-status-created {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        /* Banner de Alerta */
+        .alert-error-banner {
+            padding: 1rem;
+            background-color: rgba(244, 63, 94, 0.1);
+            border-bottom: 1px solid rgba(244, 63, 94, 0.2);
+            color: #fda4af;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col bg-google-bg text-google-text antialiased selection:bg-google-primary/30">
+
+    <!-- Cabeçalho -->
+    <header class="bg-google-surface border-b border-google-border sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-google-primary/10 rounded-lg text-google-primary flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">PR Audit & Trace</h1>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="open-api-modal" type="button" class="btn-header-action">
+                    <i data-lucide="key" class="w-4 h-4 text-google-primary"></i>
+                    <span class="hidden sm:inline">Configurar API</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Card de Filtros -->
+        <div class="card-surface p-4 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-medium text-white flex items-center gap-2">
+                    <i data-lucide="filter" class="w-4 h-4 text-google-primary"></i>
+                    Filtros
+                </h2>
+                <button id="clear-filters" type="button" class="text-xs text-google-subtext hover:text-white transition-colors underline cursor-pointer">
+                    Limpar filtros
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Repositório -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="filter-repo" class="form-label">Repositório *</label>
+                    <input type="text" id="filter-repo" placeholder="Ex: org/repo ou usuario/projeto" class="form-control">
+                    <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong> (ex: facebook/react)</span>
+                </div>
+
+                <!-- Usuário da Ação -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="filter-user" class="form-label">Usuário da Ação *</label>
+                    <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="form-control">
+                </div>
+
+                <!-- Período -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="filter-period" class="form-label">Período *</label>
+                    <select id="filter-period" class="form-control">
+                        <option value="today">Dia atual (Hoje)</option>
+                        <option value="yesterday">Dia anterior (Ontem)</option>
+                        <option value="3">Últimos 3 dias</option>
+                        <option value="7" selected>Últimos 7 dias</option>
+                        <option value="15">Últimos 15 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área de Resultados -->
+        <div class="card-surface overflow-hidden flex-1 flex flex-col min-h-[360px]">
+            <!-- Banner de Alerta e Erros da API com Botão Fechar -->
+            <div id="api-error-banner" class="alert-error-banner hidden">
+                <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0 mt-0.5"></i>
+                <div class="flex-1 flex flex-col gap-1">
+                    <span id="api-error-title" class="font-semibold text-rose-200">Falha na consulta da API</span>
+                    <span id="api-error-message" class="text-rose-300/90 leading-relaxed"></span>
+                </div>
+                <button id="close-api-error" type="button" class="text-rose-400 hover:text-rose-200 p-1 rounded-lg transition-colors cursor-pointer shrink-0" title="Fechar alerta" aria-label="Fechar alerta">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="p-4 sm:p-6 border-b border-google-border flex items-center justify-between gap-4">
+                <h3 class="text-base font-medium text-white flex items-center gap-2">
+                    <i data-lucide="list" class="w-4 h-4 text-google-primary"></i>
+                    Resultados da Auditoria
+                </h3>
+                <div class="flex items-center gap-2">
+                    <span id="loading-spinner" class="hidden text-xs text-google-primary flex items-center gap-1.5">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                        <span>Buscando...</span>
+                    </span>
+                    <span id="result-count" class="text-xs bg-google-surfaceHover px-2.5 py-1 rounded-full text-google-subtext border border-google-border">0 registros</span>
+                </div>
+            </div>
+
+            <!-- Estado Inicial / Campos Pendentes -->
+            <div id="search-prompt" class="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
+                <div class="w-12 h-12 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-subtext mb-3 border border-google-border">
+                    <i data-lucide="search" class="w-6 h-6"></i>
+                </div>
+                <h4 class="text-sm font-medium text-white mb-1">Preencha todos os campos obrigatórios</h4>
+                <p class="text-xs text-google-subtext max-w-sm">Repositório, Usuário da Ação e Período para exibir a auditoria.</p>
+            </div>
+
+            <!-- Tabela: AD# como primeira coluna agrupada -->
+            <div id="table-container" class="hidden overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="border-b border-google-border bg-google-bg/50 text-xs font-semibold text-google-subtext">
+                            <th class="p-4 w-40">AD#</th>
+                            <th class="p-4">PULL REQUEST</th>
+                            <th class="p-4">STATUS</th>
+                            <th class="p-4">DATA E HORÁRIO DA AÇÃO</th>
+                            <th class="p-4 text-right">DETALHES</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-google-border text-sm">
+                        <!-- Preenchido dinamicamente via JS com agrupamento por AD# -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal de Configuração de Credenciais -->
+    <div id="api-modal" class="modal-overlay modal-backdrop flex" style="display: none;">
+        <div class="modal-card max-w-md">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-medium text-white flex items-center gap-2">
+                    <i data-lucide="key" class="w-5 h-5 text-google-primary"></i>
+                    Configurar Credenciais
+                </h3>
+                <button id="close-api-modal" type="button" class="btn-icon-close">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                    <label for="api-token-input" class="form-label">Token GitHub</label>
+                    <input type="password" id="api-token-input" placeholder="github_pat_... ou ghp_..." class="form-control font-mono text-xs">
+                    
+                    <div class="text-[11px] text-google-subtext/85 leading-relaxed flex flex-col gap-2 mt-1">
+                        <span>Opcional para repositórios públicos. Necessário para repositórios privados ou para contornar o limite de requisições (rate limit).</span>
+                        
+                        <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1.5">
+                            <span class="font-medium text-google-primary flex items-center gap-1.5">
+                                <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                                Como gerar o token recomendado:
+                            </span>
+                            <ol class="list-decimal pl-4 space-y-1 text-google-subtext/90">
+                                <li>Crie um <strong class="text-white">Fine-grained token</strong> no GitHub (<em>Developer Settings &gt; Personal access tokens</em>).</li>
+                                <li>Em <strong class="text-white">Repository access</strong>, selecione os repositórios que deseja auditar.</li>
+                                <li>Na seção <strong class="text-white">Repository permissions</strong>, conceda permissão <strong class="text-white">Read-only</strong> (apenas leitura) para:
+                                    <ul class="list-disc pl-4 mt-0.5 space-y-0.5 text-google-primary/90 font-mono text-[10px]">
+                                        <li>Pull requests (Read-only)</li>
+                                        <li>Metadata (Read-only)</li>
+                                    </ul>
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 mt-2">
+                <button id="save-api-modal" type="button" class="btn-primary">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="details-modal" class="modal-overlay modal-backdrop flex" style="display: none;">
+        <div class="modal-card max-w-lg">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-medium text-white flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-5 h-5 text-google-primary"></i>
+                    Detalhes da Ação do PR
+                </h3>
+                <button id="close-details-modal" type="button" class="btn-icon-close">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="details-content" class="text-sm text-google-text flex flex-col gap-3">
+                <!-- Preenchido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const runtimeState = {
+            apiKey: '',
+            filters: {
+                repo: '',
+                user: '',
+                period: '7'
+            },
+            currentData: []
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                try { lucide.createIcons(); } catch (e) { /* ignore */ }
+            }
+
+            const repoInput = document.getElementById('filter-repo');
+            const userInput = document.getElementById('filter-user');
+            const periodSelect = document.getElementById('filter-period');
+            const clearFiltersBtn = document.getElementById('clear-filters');
+            
+            const searchPrompt = document.getElementById('search-prompt');
+            const tableContainer = document.getElementById('table-container');
+            const tableBody = document.getElementById('table-body');
+            const resultCount = document.getElementById('result-count');
+            const loadingSpinner = document.getElementById('loading-spinner');
+
+            const apiModal = document.getElementById('api-modal');
+            const openApiModalBtn = document.getElementById('open-api-modal');
+            const closeApiModalBtn = document.getElementById('close-api-modal');
+            const saveApiModalBtn = document.getElementById('save-api-modal');
+            const apiTokenInput = document.getElementById('api-token-input');
+
+            const detailsModal = document.getElementById('details-modal');
+            const closeDetailsModalBtn = document.getElementById('close-details-modal');
+            const detailsContent = document.getElementById('details-content');
+
+            const repoFormatHint = document.getElementById('repo-format-hint');
+            const apiErrorBanner = document.getElementById('api-error-banner');
+            const apiErrorTitle = document.getElementById('api-error-title');
+            const apiErrorMessage = document.getElementById('api-error-message');
+            const closeApiErrorBtn = document.getElementById('close-api-error');
+
+            const auditDiagnostics = {
+                totalFetched: 0,
+                dateFilteredCount: 0,
+                userFilteredCount: 0
+            };
+
+            function showErrorBanner(title, message) {
+                apiErrorTitle.textContent = title;
+                apiErrorMessage.innerHTML = message;
+                apiErrorBanner.classList.remove('hidden');
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+            }
+
+            function hideErrorBanner() {
+                apiErrorBanner.classList.add('hidden');
+            }
+
+            if (closeApiErrorBtn) {
+                closeApiErrorBtn.addEventListener('click', hideErrorBanner);
+            }
+
+            openApiModalBtn.addEventListener('click', () => {
+                apiTokenInput.value = runtimeState.apiKey;
+                apiModal.style.display = 'flex';
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+            });
+            closeApiModalBtn.addEventListener('click', () => {
+                apiModal.style.display = 'none';
+            });
+            saveApiModalBtn.addEventListener('click', () => {
+                runtimeState.apiKey = apiTokenInput.value.trim();
+                apiModal.style.display = 'none';
+                checkFiltersAndSearch();
+            });
+
+            closeDetailsModalBtn.addEventListener('click', () => {
+                detailsModal.style.display = 'none';
+            });
+
+            async function fetchPRsForAudit(repoQuery, targetUser) {
+                hideErrorBanner();
+                auditDiagnostics.totalFetched = 0;
+                auditDiagnostics.dateFilteredCount = 0;
+                auditDiagnostics.userFilteredCount = 0;
+
+                if (!repoQuery.includes('/') || repoQuery.startsWith('/') || repoQuery.endsWith('/')) {
+                    repoFormatHint.classList.remove('hidden');
+                    return [];
+                } else {
+                    repoFormatHint.classList.add('hidden');
+                }
+
+                try {
+                    loadingSpinner.classList.remove('hidden');
+                    const headers = {
+                        'Accept': 'application/vnd.github.v3+json'
+                    };
+                    if (runtimeState.apiKey) {
+                        headers['Authorization'] = `token ${runtimeState.apiKey}`;
+                    }
+
+                    const cleanUser = targetUser.replace(/^@/, '').trim().toLowerCase();
+                    const simplifiedUser = cleanUser.replace(/[-_.]/g, '');
+
+                    const searchPromises = [
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}&per_page=50&sort=updated`, { headers }).catch(() => null),
+                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=50&sort=updated&direction=desc`, { headers }).catch(() => null)
+                    ];
+
+                    const responses = await Promise.all(searchPromises);
+                    const pullsMap = new Map();
+
+                    for (const resp of responses) {
+                        if (resp && resp.ok) {
+                            const data = await resp.json();
+                            const items = Array.isArray(data) ? data : (data.items || []);
+                            items.forEach(item => {
+                                if (item && item.number && !pullsMap.has(item.number)) {
+                                    pullsMap.set(item.number, item);
+                                }
+                            });
+                        } else if (resp && resp.status === 401) {
+                            showErrorBanner(
+                                'Token inválido ou expirado (401 Unauthorized)',
+                                'O token configurado foi recusado pelo GitHub. Clique em <strong>Configurar API</strong> no topo e informe um token válido.'
+                            );
+                            return [];
+                        } else if (resp && resp.status === 403) {
+                            showErrorBanner(
+                                'Limite da API ou autorização necessária (403 Forbidden)',
+                                'O limite de requisições foi atingido ou este repositório exige token com autorização SSO. Configure um Personal Access Token no topo.'
+                            );
+                            return [];
+                        } else if (resp && resp.status === 404) {
+                            showErrorBanner(
+                                'Repositório não encontrado (404 Not Found)',
+                                `O repositório <strong>${repoQuery}</strong> não foi encontrado ou é privado. Configure um token com permissão de leitura.`
+                            );
+                            return [];
+                        }
+                    }
+
+                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 40);
+                    auditDiagnostics.totalFetched = candidatePRs.length;
+
+                    // Consulta detalhada para cada PR candidato (reviews e merge)
+                    const enrichedList = await Promise.all(candidatePRs.map(async (pr) => {
+                        const prNumber = pr.number;
+                        let fullPR = null;
+                        let reviews = [];
+
+                        try {
+                            const [fullPrResp, reviewsResp] = await Promise.all([
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}`, { headers }).catch(() => null),
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=30`, { headers }).catch(() => null)
+                            ]);
+
+                            if (fullPrResp && fullPrResp.ok) fullPR = await fullPrResp.json();
+                            if (reviewsResp && reviewsResp.ok) reviews = await reviewsResp.json();
+                        } catch (e) { /* fallback */ }
+
+                        const basePR = fullPR || pr;
+                        
+                        // Captura AD# ou AB# na descrição ou título
+                        const contentToInspect = `${basePR.body || ''} ${basePR.title || ''}`;
+                        const adMatch = contentToInspect.match(/(?:AD|AB)#\s*\d+/i) || 
+                                        contentToInspect.match(/(?:AD|AB)[-_\s]?\d+/i);
+                        const ad = adMatch 
+                            ? adMatch[0].toUpperCase().replace(/\s+/, '').replace(/^(?:AD|AB)(?=\d)/i, 'AD#') 
+                            : 'N/A';
+
+                        const mergedByUser = (basePR.merged_by && basePR.merged_by.login) ? basePR.merged_by.login : null;
+
+                        let userReview = null;
+                        if (Array.isArray(reviews)) {
+                            userReview = reviews.slice().reverse().find(r => {
+                                const revLogin = (r.user && r.user.login) ? r.user.login.toLowerCase() : '';
+                                const simpRev = revLogin.replace(/[-_.]/g, '');
+                                return revLogin.includes(cleanUser) || cleanUser.includes(revLogin) || simpRev.includes(simplifiedUser);
+                            });
+                        }
+
+                        const userDidMerge = mergedByUser && (
+                            mergedByUser.toLowerCase().includes(cleanUser) ||
+                            cleanUser.includes(mergedByUser.toLowerCase()) ||
+                            mergedByUser.toLowerCase().replace(/[-_.]/g, '').includes(simplifiedUser)
+                        );
+
+                        let actionUser = basePR.user ? basePR.user.login : 'unknown';
+                        let actionTimestamp = basePR.created_at;
+                        let status = 'created';
+
+                        if (userDidMerge) {
+                            actionUser = mergedByUser;
+                            actionTimestamp = basePR.merged_at || basePR.updated_at;
+                            status = 'merged';
+                        } else if (userReview) {
+                            actionUser = userReview.user.login;
+                            actionTimestamp = userReview.submitted_at || basePR.updated_at;
+                            status = 'reviewed';
+                        } else if (basePR.merged_at && mergedByUser) {
+                            actionUser = mergedByUser;
+                            actionTimestamp = basePR.merged_at;
+                            status = 'merged';
+                        }
+
+                        const associatedUsers = [
+                            actionUser,
+                            mergedByUser,
+                            userReview ? userReview.user.login : null,
+                            basePR.user ? basePR.user.login : null
+                        ].filter(Boolean);
+
+                        if (Array.isArray(reviews)) {
+                            reviews.forEach(r => r.user && r.user.login && associatedUsers.push(r.user.login));
+                        }
+
+                        let detailText = '';
+                        if (status === 'merged') {
+                            detailText = `O usuário ${actionUser} realizou o MERGE deste PR em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
+                        } else if (status === 'reviewed') {
+                            const reviewState = (userReview && userReview.state === 'APPROVED') ? 'APROVAÇÃO' : (userReview ? userReview.state : 'REVIEW');
+                            detailText = `O usuário ${actionUser} realizou o REVIEW (${reviewState}) em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
+                        } else {
+                            detailText = `O usuário ${actionUser} CRIOU este PR em ${new Date(actionTimestamp).toLocaleString('pt-BR')}.`;
+                        }
+
+                        return {
+                            id: basePR.number,
+                            title: basePR.title || `PR #${basePR.number}`,
+                            ad: ad,
+                            repo: repoQuery,
+                            actionUser: actionUser,
+                            associatedUsers: associatedUsers,
+                            status: status,
+                            actionTimestamp: actionTimestamp,
+                            details: detailText
+                        };
+                    }));
+
+                    return enrichedList;
+                } catch (err) {
+                    showErrorBanner('Falha de conexão', `Não foi possível conectar aos servidores do GitHub: ${err.message}.`);
+                    return [];
+                } finally {
+                    loadingSpinner.classList.add('hidden');
+                }
+            }
+
+            function isDateInPeriod(dateObj, periodValue) {
+                const now = new Date();
+                const targetTime = dateObj.getTime();
+
+                if (periodValue === 'today') {
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                    return targetTime >= startOfToday.getTime();
+                }
+
+                if (periodValue === 'yesterday') {
+                    const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+                    const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+                    return targetTime >= startOfYesterday.getTime() && targetTime <= endOfYesterday.getTime();
+                }
+
+                const days = parseInt(periodValue, 10);
+                if (!isNaN(days)) {
+                    const cutoff = Date.now() - (days * 86400000);
+                    return targetTime >= cutoff;
+                }
+
+                return true;
+            }
+
+            function getPeriodLabel(periodValue) {
+                switch(periodValue) {
+                    case 'today': return 'Dia atual (Hoje)';
+                    case 'yesterday': return 'Dia anterior (Ontem)';
+                    case '3': return 'Últimos 3 dias';
+                    case '7': return 'Últimos 7 dias';
+                    case '15': return 'Últimos 15 dias';
+                    case '30': return 'Últimos 30 dias';
+                    default: return `Últimos ${periodValue} dias`;
+                }
+            }
+
+            async function checkFiltersAndSearch() {
+                const repo = repoInput.value.trim();
+                const user = userInput.value.trim();
+                const period = periodSelect.value;
+
+                runtimeState.filters = { repo, user, period };
+
+                if (repo.length > 0 && user.length > 0 && period) {
+                    searchPrompt.classList.add('hidden');
+                    tableContainer.classList.remove('hidden');
+
+                    let dataset = [];
+                    if (repo.includes('/')) {
+                        dataset = await fetchPRsForAudit(repo, user);
+                    }
+
+                    executeSearch(dataset);
+                } else {
+                    hideErrorBanner();
+                    repoFormatHint.classList.add('hidden');
+                    searchPrompt.classList.remove('hidden');
+                    tableContainer.classList.add('hidden');
+                    resultCount.textContent = '0 registros';
+                }
+            }
+
+            function executeSearch(dataset) {
+                const { repo, user, period } = runtimeState.filters;
+                const repoQuery = repo.toLowerCase();
+                const rawUser = user.replace(/^@/, '').trim().toLowerCase();
+                const simplifiedUser = rawUser.replace(/[-_.]/g, '');
+
+                let dateExcluded = 0;
+                let userExcluded = 0;
+
+                let filtered = dataset.filter(item => {
+                    if (!item.repo.toLowerCase().includes(repoQuery)) return false;
+
+                    const actionDate = new Date(item.actionTimestamp);
+                    if (isNaN(actionDate.getTime()) || !isDateInPeriod(actionDate, period)) {
+                        dateExcluded++;
+                        return false;
+                    }
+
+                    const userMatches = item.associatedUsers.some(u => {
+                        const lowU = u.toLowerCase();
+                        const simpU = lowU.replace(/[-_.]/g, '');
+                        return lowU.includes(rawUser) || rawUser.includes(lowU) || simpU.includes(simplifiedUser);
+                    });
+
+                    if (!userMatches) {
+                        userExcluded++;
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                auditDiagnostics.dateFilteredCount = dateExcluded;
+                auditDiagnostics.userFilteredCount = userExcluded;
+
+                // Ordenação padrão por número do AD# (decrescente)
+                filtered.sort((a, b) => {
+                    const numA = parseInt((a.ad.match(/\d+/) || [0])[0], 10);
+                    const numB = parseInt((b.ad.match(/\d+/) || [0])[0], 10);
+                    if (numA !== numB) {
+                        return numB - numA;
+                    }
+                    return b.id - a.id;
+                });
+
+                runtimeState.currentData = filtered;
+                renderTable(filtered);
+            }
+
+            function renderTable(data) {
+                tableBody.innerHTML = '';
+                resultCount.textContent = `${data.length} PR${data.length === 1 ? '' : 's'}`;
+
+                if (data.length === 0) {
+                    const currentPeriod = runtimeState.filters.period;
+                    const currentUser = runtimeState.filters.user;
+                    const periodLabel = getPeriodLabel(currentPeriod);
+
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="p-8 text-center">
+                                <div class="max-w-md mx-auto flex flex-col items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-primary border border-google-border">
+                                        <i data-lucide="info" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-sm font-medium text-white">Nenhum registro encontrado</span>
+                                        <span class="text-xs text-google-subtext leading-relaxed">
+                                            A API respondeu com <strong>${auditDiagnostics.totalFetched} pull requests</strong>, porém nenhum atendeu simultaneamente aos filtros de usuário e período.
+                                        </span>
+                                    </div>
+
+                                    <div class="w-full bg-google-bg p-3.5 rounded-lg border border-google-border text-xs text-left flex flex-col gap-2">
+                                        <div class="flex items-center justify-between text-google-subtext">
+                                            <span>Filtro de Usuário:</span>
+                                            <span class="font-mono text-white">${currentUser}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-google-subtext">
+                                            <span>Janela de Período:</span>
+                                            <span class="text-white font-medium">${periodLabel}</span>
+                                        </div>
+                                        ${auditDiagnostics.dateFilteredCount > 0 ? `
+                                            <div class="text-[11px] text-amber-400/90 pt-1 border-t border-google-border/50">
+                                                💡 ${auditDiagnostics.dateFilteredCount} PR(s) foram descartados por estarem fora da janela: <strong>${periodLabel}</strong>.
+                                            </div>
+                                        ` : ''}
+                                    </div>
+
+                                    ${currentPeriod !== '30' ? `
+                                        <button type="button" id="expand-period-btn" class="w-full py-2 px-3 text-xs bg-google-surfaceHover hover:bg-google-border/60 text-white rounded-lg border border-google-border transition-colors cursor-pointer flex items-center justify-center gap-1.5 mt-1">
+                                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-google-primary"></i>
+                                            Expandir período para 15 ou 30 dias
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+
+                    if (window.lucide) {
+                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                    }
+
+                    const expandBtn = document.getElementById('expand-period-btn');
+                    if (expandBtn) {
+                        expandBtn.addEventListener('click', () => {
+                            periodSelect.value = (currentPeriod === 'today' || currentPeriod === 'yesterday' || currentPeriod === '3') ? '7' : (currentPeriod === '7' ? '15' : '30');
+                            checkFiltersAndSearch();
+                        });
+                    }
+
+                    return;
+                }
+
+                // Agrupamento dos PRs por AD#
+                const groups = new Map();
+                data.forEach(item => {
+                    const key = item.ad || 'N/A';
+                    if (!groups.has(key)) {
+                        groups.set(key, []);
+                    }
+                    groups.get(key).push(item);
+                });
+
+                // Renderização agrupada com AD# na primeira coluna
+                groups.forEach((prs, adKey) => {
+                    prs.forEach((item, index) => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-google-surfaceHover/50 transition-colors border-b border-google-border/40';
+
+                        let statusBadgeClass = 'badge-status-created';
+                        let statusLabel = 'CREATED';
+                        if (item.status === 'merged') {
+                            statusLabel = 'MERGED';
+                            statusBadgeClass = 'badge-status-merged';
+                        } else if (item.status === 'reviewed') {
+                            statusLabel = 'REVIEWED';
+                            statusBadgeClass = 'badge-status-reviewed';
+                        }
+
+                        const actionDate = new Date(item.actionTimestamp);
+                        const formattedDate = !isNaN(actionDate.getTime()) ? actionDate.toLocaleString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        }) : item.actionTimestamp;
+
+                        // Primeira linha do grupo renderiza a célula do AD# com rowspan
+                        let adCellHtml = '';
+                        if (index === 0) {
+                            adCellHtml = `
+                                <td rowspan="${prs.length}" class="p-4 align-top border-r border-google-border/40 bg-google-surface/60">
+                                    <div class="sticky top-20 flex flex-col gap-1.5 items-start">
+                                        <span class="px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-google-primary/10 text-google-primary border border-google-primary/30">
+                                            ${adKey}
+                                        </span>
+                                        ${prs.length > 1 ? `
+                                            <span class="text-[10px] text-google-subtext font-medium bg-google-bg px-2 py-0.5 rounded border border-google-border">
+                                                ${prs.length} PRs associados
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </td>
+                            `;
+                        }
+
+                        tr.innerHTML = `
+                            ${adCellHtml}
+                            <td class="p-4 font-medium text-white max-w-xs truncate">
+                                <div class="truncate" title="${item.title}">#${item.id} - ${item.title}</div>
+                            </td>
+                            <td class="p-4">
+                                <span class="badge-status ${statusBadgeClass}">
+                                    ${statusLabel}
+                                </span>
+                            </td>
+                            <td class="p-4 text-google-subtext text-xs whitespace-nowrap">${formattedDate}</td>
+                            <td class="p-4 text-right">
+                                <button class="view-details-btn p-1.5 hover:bg-google-border/50 text-google-subtext hover:text-white rounded-lg transition-colors inline-flex items-center justify-center cursor-pointer" data-id="${item.id}" title="Ver Detalhes">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                });
+
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+
+                document.querySelectorAll('.view-details-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
+                        const item = runtimeState.currentData.find(i => i.id === id);
+                        if (item) {
+                            detailsContent.innerHTML = `
+                                <div class="flex flex-col gap-2.5">
+                                    <div><span class="text-google-subtext">AD#:</span> <span class="text-white font-medium font-mono">${item.ad}</span></div>
+                                    <div><span class="text-google-subtext">Pull Request:</span> <span class="text-white font-medium">#${item.id} - ${item.title}</span></div>
+                                    <div><span class="text-google-subtext">Repositório:</span> <span class="text-white font-medium">${item.repo}</span></div>
+                                    <div><span class="text-google-subtext">Usuário Responsável:</span> <span class="text-white font-medium">${item.actionUser}</span></div>
+                                    <div><span class="text-google-subtext">Status:</span> <span class="text-white font-medium">${item.status.toUpperCase()}</span></div>
+                                    <div><span class="text-google-subtext">Data da Ação:</span> <span class="text-white font-medium">${new Date(item.actionTimestamp).toLocaleString('pt-BR')}</span></div>
+                                    <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">${item.details}</div>
+                                </div>
+                            `;
+                            detailsModal.style.display = 'flex';
+                        }
+                    });
+                });
+            }
+
+            let debounceTimer;
+            const debouncedSearch = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(checkFiltersAndSearch, 250);
+            };
+
+            repoInput.addEventListener('input', debouncedSearch);
+            userInput.addEventListener('input', debouncedSearch);
+            periodSelect.addEventListener('change', checkFiltersAndSearch);
+
+            clearFiltersBtn.addEventListener('click', () => {
+                repoInput.value = '';
+                userInput.value = '';
+                periodSelect.value = '7';
+                hideErrorBanner();
+                repoFormatHint.classList.add('hidden');
+                checkFiltersAndSearch();
+            });
+        });
+    </script>
+</body>
+</html>
