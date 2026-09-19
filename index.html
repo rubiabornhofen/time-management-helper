@@ -6,7 +6,6 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
     <title>Auditoria de Pull Requests e Cards ADO</title>
 
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -231,18 +230,29 @@
             align-items: flex-start;
             gap: 0.75rem;
         }
+
+        /* Toast de Notificação */
+        #toast-notice {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 60;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col bg-google-bg text-google-text antialiased selection:bg-google-primary/30">
 
-    <!-- Cabeçalho -->
     <header class="bg-google-surface border-b border-google-border sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="p-2 bg-google-primary/10 rounded-lg text-google-primary flex items-center justify-center">
                     <i data-lucide="shield-check" class="w-6 h-6"></i>
                 </div>
-                <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">Audit & Trace Hub</h1>
+                <div>
+                    <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">Audit & Trace Hub</h1>
+                    <p class="text-[11px] text-google-subtext hidden sm:block">Rastreamento consolidado de PRs GitHub e Work Items Azure DevOps</p>
+                </div>
             </div>
             <div class="flex items-center space-x-2">
                 <button id="open-api-modal" type="button" class="btn-header-action">
@@ -262,13 +272,15 @@
                     <i data-lucide="filter" class="w-4 h-4 text-google-primary"></i>
                     Filtros de Auditoria
                 </h2>
-                <button id="clear-filters" type="button" class="text-xs text-google-subtext hover:text-white transition-colors underline cursor-pointer">
-                    Limpar filtros
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="clear-filters" type="button" class="text-xs text-google-subtext hover:text-white transition-colors underline cursor-pointer">
+                        Limpar filtros
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- 1. Repositório GitHub (Obrigatório apenas para Pull Requests) -->
+                <!-- 1. Repositório GitHub -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-repo" class="form-label flex items-center justify-between">
                         <span>Repositório GitHub</span>
@@ -278,7 +290,7 @@
                     <span id="repo-format-hint" class="text-[11px] text-amber-400 hidden">Informe no padrão <strong>dono/repositório</strong></span>
                 </div>
 
-                <!-- 2. Usuário GitHub (Exclusivo para Pull Requests) -->
+                <!-- 2. Usuário GitHub -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-user" class="form-label flex items-center justify-between">
                         <span>Usuário GitHub</span>
@@ -287,7 +299,7 @@
                     <input type="text" id="filter-user" placeholder="Ex: rubiabornhofen" class="form-control">
                 </div>
 
-                <!-- 3. Nome no ADO (Exclusivo para Cards do Azure DevOps) -->
+                <!-- 3. Nome no ADO -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-ado-name" class="form-label flex items-center justify-between text-white font-medium">
                         <span>Nome no ADO *</span>
@@ -296,7 +308,7 @@
                     <input type="text" id="filter-ado-name" placeholder="Ex: Bornhofen, Rubia ou Rubia Bornhofen" class="form-control">
                 </div>
 
-                <!-- 4. Período (Padrão: Últimos 3 dias) -->
+                <!-- 4. Período -->
                 <div class="flex flex-col gap-1.5">
                     <label for="filter-period" class="form-label">Período *</label>
                     <select id="filter-period" class="form-control">
@@ -311,9 +323,8 @@
             </div>
         </div>
 
-        <!-- Área de Auditoria com Abas -->
         <div class="card-surface overflow-hidden flex-1 flex flex-col min-h-[420px]">
-            <!-- Barra de Abas (GitHub PRs vs Azure DevOps Cards) -->
+            <!-- Barra de Abas -->
             <div class="flex items-center justify-between border-b border-google-border px-4 bg-google-surface/60 overflow-x-auto">
                 <div class="flex items-center space-x-1">
                     <button id="tab-prs-btn" class="tab-button active" type="button">
@@ -328,7 +339,7 @@
                     </button>
                 </div>
 
-                <div class="flex items-center py-2">
+                <div class="flex items-center py-2 gap-3">
                     <span id="loading-spinner" class="hidden text-xs text-google-primary flex items-center gap-1.5">
                         <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
                         <span id="loading-text">Consultando...</span>
@@ -336,7 +347,7 @@
                 </div>
             </div>
 
-            <!-- Banner de Alerta e Erros da API com Botão Fechar -->
+            <!-- Banner de Alerta e Erros da API -->
             <div id="api-error-banner" class="alert-error-banner hidden">
                 <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0 mt-0.5"></i>
                 <div class="flex-1 flex flex-col gap-1">
@@ -359,7 +370,7 @@
 
             <!-- Aba 1: Tabela de Pull Requests do GitHub -->
             <div id="tab-prs-view" class="hidden flex-1 flex-col">
-                <div id="prs-repo-required-prompt" class="hidden p-8 text-center my-auto flex-col items-center justify-center">
+                <div id="prs-repo-required-prompt" class="hidden p-8 text-center my-auto flex flex-col items-center justify-center">
                     <div class="w-10 h-10 rounded-full bg-google-surfaceHover flex items-center justify-center text-google-primary border border-google-border mb-3 mx-auto">
                         <i data-lucide="git-pull-request" class="w-5 h-5"></i>
                     </div>
@@ -429,7 +440,7 @@
                     <i data-lucide="key" class="w-5 h-5 text-google-primary"></i>
                     Configurar Conexões & Tokens
                 </h3>
-                <button id="close-api-modal" type="button" class="btn-icon-close">
+                <button id="close-api-modal" type="button" class="btn-icon-close" aria-label="Fechar modal">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -511,7 +522,7 @@
                     <i data-lucide="file-text" class="w-5 h-5 text-google-primary"></i>
                     <span id="details-modal-title">Detalhes do Registro</span>
                 </h3>
-                <button id="close-details-modal" type="button" class="btn-icon-close">
+                <button id="close-details-modal" type="button" class="btn-icon-close" aria-label="Fechar detalhes">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -521,7 +532,17 @@
         </div>
     </div>
 
+    <!-- Toast de Notificação -->
+    <div id="toast-notice" class="opacity-0 pointer-events-none transform translate-y-2 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-google-surface border border-google-border text-xs text-white shadow-xl">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toast-message">Operação concluída com sucesso!</span>
+    </div>
+
     <script>
+        // Controlador de requisições ativas e cache em memória
+        let activeAbortController = null;
+        const queryCache = new Map();
+
         // Estado estritamente em memória RAM em tempo de execução (zero persistência em storage)
         const runtimeState = {
             apiKey: '', // GitHub Token
@@ -540,6 +561,9 @@
             currentPRData: [],
             currentDevOpsData: []
         };
+
+        // Tipos estritamente permitidos para cards do Azure DevOps
+        const ALLOWED_DEVOPS_TYPES = ['Bug', 'User Story', 'Feature', 'Issue'];
 
         // Formata e converte qualquer formato de nome para o padrão americano: "Sobrenome, Nome"
         function formatAdoAmericanName(input) {
@@ -589,7 +613,7 @@
                 if (candidateEmail.includes(noSpaceTarget) || noSpaceTarget.includes(candidateEmail)) return true;
             }
 
-            // 3. Checagem por tokens (ex: "Bornhofen" e "Rubia" presentes no nome do usuário)
+            // 3. Checagem por tokens
             const tokens = targetRaw.split(/[\s,]+/).filter(t => t.length >= 2);
             if (tokens.length >= 2) {
                 const allMatch = tokens.every(tok => candidateName.includes(tok) || candidateEmail.includes(tok));
@@ -599,13 +623,13 @@
             return false;
         }
 
-        // Tipos estritamente permitidos para cards do Azure DevOps
-        const ALLOWED_DEVOPS_TYPES = ['Bug', 'User Story', 'Feature', 'Issue'];
-
         document.addEventListener('DOMContentLoaded', () => {
-            if (window.lucide) {
-                try { lucide.createIcons(); } catch (e) { /* ignore */ }
-            }
+            const refreshIcons = () => {
+                if (window.lucide && typeof lucide.createIcons === 'function') {
+                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
+                }
+            };
+            refreshIcons();
 
             const repoInput = document.getElementById('filter-repo');
             const userInput = document.getElementById('filter-user');
@@ -654,13 +678,24 @@
             const apiErrorMessage = document.getElementById('api-error-message');
             const closeApiErrorBtn = document.getElementById('close-api-error');
 
+            const toastNotice = document.getElementById('toast-notice');
+            const toastMessage = document.getElementById('toast-message');
+
+            function showToast(message) {
+                if (!toastNotice || !toastMessage) return;
+                toastMessage.textContent = message;
+                toastNotice.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+                refreshIcons();
+                setTimeout(() => {
+                    toastNotice.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+                }, 3000);
+            }
+
             function showErrorBanner(title, message) {
                 if (apiErrorTitle) apiErrorTitle.textContent = title;
                 if (apiErrorMessage) apiErrorMessage.innerHTML = message;
                 if (apiErrorBanner) apiErrorBanner.classList.remove('hidden');
-                if (window.lucide) {
-                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                }
+                refreshIcons();
             }
 
             function hideErrorBanner() {
@@ -671,7 +706,23 @@
                 closeApiErrorBtn.addEventListener('click', hideErrorBanner);
             }
 
-            // Controle de Abas
+            // Fechamento de modais clicando no backdrop escuro ou via ESC
+            [apiModal, detailsModal].forEach(modalEl => {
+                if (!modalEl) return;
+                modalEl.addEventListener('click', (e) => {
+                    if (e.target === modalEl) {
+                        modalEl.style.display = 'none';
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (apiModal) apiModal.style.display = 'none';
+                    if (detailsModal) detailsModal.style.display = 'none';
+                }
+            });
+
             if (tabPrsBtn) tabPrsBtn.addEventListener('click', () => switchTab('prs'));
             if (tabDevOpsBtn) tabDevOpsBtn.addEventListener('click', () => switchTab('devops'));
 
@@ -708,9 +759,7 @@
                         quickBtn.addEventListener('click', () => openApiModalBtn.click());
                     }
                 }
-                if (window.lucide) {
-                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                }
+                refreshIcons();
             }
             updateAzureIndicator();
 
@@ -722,9 +771,7 @@
                     if (azurePatInput) azurePatInput.value = runtimeState.azure.pat;
 
                     if (apiModal) apiModal.style.display = 'flex';
-                    if (window.lucide) {
-                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                    }
+                    refreshIcons();
                 });
             }
 
@@ -743,6 +790,7 @@
 
                     if (apiModal) apiModal.style.display = 'none';
                     updateAzureIndicator();
+                    showToast('Credenciais atualizadas na memória RAM.');
                     checkFiltersAndSearch();
                 });
             }
@@ -767,7 +815,7 @@
                 } else {
                     const days = parseInt(periodValue, 10) || 3;
                     start = new Date(Date.now() - (days * 86400000));
-                    end = new Date(Date.now() + 600000); // margem para tolerância de relógio
+                    end = new Date(Date.now() + 600000); // tolerância
                 }
 
                 return {
@@ -805,7 +853,6 @@
                     return { missingName: true, items: [] };
                 }
 
-                // Se as credenciais reais não estiverem configuradas, orienta a configuração
                 if (!org || !project || !pat) {
                     return { missingConfig: true, items: [] };
                 }
@@ -816,10 +863,8 @@
                     'Authorization': `Basic ${btoa(':' + pat)}`
                 };
 
-                // Formata a data estritamente como 'YYYY-MM-DD' para conformidade com a precisão de data do WIQL
                 const startDateOnly = startISO.split('T')[0];
 
-                // 1. Consulta WIQL em tempo real (latência zero) para obter work items alterados recentemente
                 try {
                     const typesWiql = ALLOWED_DEVOPS_TYPES.map(t => `'${t}'`).join(', ');
                     const wiqlQuery = {
@@ -838,7 +883,6 @@
                         const wiqlData = await wiqlResp.json();
                         const workItemRefs = wiqlData.workItems || [];
 
-                        // 2. Para cada card alterado, consulta os updates para obter todas as alterações no período
                         for (const ref of workItemRefs.slice(0, 35)) {
                             if (signal && signal.aborted) return { missingConfig: false, missingName: false, items: [] };
                             try {
@@ -873,7 +917,6 @@
                             }
                         }
 
-                        // Se encontrou updates, busca os títulos e tipos atualizados em lote
                         if (collectedUpdates.length > 0) {
                             const distinctIds = Array.from(new Set(collectedUpdates.map(u => u.WorkItemId)));
                             const fields = 'System.Id,System.Title,System.WorkItemType,System.State';
@@ -905,15 +948,12 @@
                             'Azure DevOps: Acesso Negado (403)',
                             'Seu usuário não possui permissão para consultar o projeto Azure DevOps especificado.'
                         );
-                    } else {
-                        const errData = await wiqlResp.json().catch(() => null);
-                        console.warn('WIQL query warning:', errData);
                     }
                 } catch (wiqlErr) {
-                    if (wiqlErr.name !== 'AbortError') console.warn('Consulta WIQL falhou, tentando Analytics OData:', wiqlErr);
+                    if (wiqlErr.name !== 'AbortError') console.warn('Consulta WIQL falhou, tentando fallback:', wiqlErr);
                 }
 
-                // 3. Fallback OData v3.0 caso WIQL não retorne
+                // Fallback OData v3.0 caso WIQL não retorne registros
                 if (collectedUpdates.length === 0) {
                     try {
                         const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
@@ -1120,9 +1160,11 @@
             }
 
             async function checkFiltersAndSearch() {
-                // Cancela imediatamente qualquer requisição anterior que ainda esteja em trânsito
+                // Cancela com segurança requisições anteriores
                 if (activeAbortController) {
-                    activeAbortController.abort();
+                    try {
+                        activeAbortController.abort();
+                    } catch (e) { /* ignore */ }
                 }
                 activeAbortController = new AbortController();
                 const signal = activeAbortController.signal;
@@ -1281,9 +1323,7 @@
                             </td>
                         </tr>
                     `;
-                    if (window.lucide) {
-                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                    }
+                    refreshIcons();
                     return;
                 }
 
@@ -1358,9 +1398,7 @@
                     });
                 });
 
-                if (window.lucide) {
-                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                }
+                refreshIcons();
 
                 document.querySelectorAll('.view-pr-details-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1383,6 +1421,7 @@
                                 </div>
                             `;
                             detailsModal.style.display = 'flex';
+                            refreshIcons();
                         }
                     });
                 });
@@ -1404,7 +1443,6 @@
                 const actions = result.items || [];
                 const strictlyTyped = actions.filter(c => ALLOWED_DEVOPS_TYPES.includes(c.WorkItemType));
 
-                // Ordena todo o histórico de ações por data mais recente primeiro
                 strictlyTyped.sort((a, b) => new Date(b.ChangedDate) - new Date(a.ChangedDate));
 
                 runtimeState.currentDevOpsData = strictlyTyped;
@@ -1438,9 +1476,7 @@
                             </td>
                         </tr>
                     `;
-                    if (window.lucide) {
-                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                    }
+                    refreshIcons();
                     return;
                 }
 
@@ -1465,9 +1501,7 @@
                             </td>
                         </tr>
                     `;
-                    if (window.lucide) {
-                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                    }
+                    refreshIcons();
                     return;
                 }
 
@@ -1498,13 +1532,10 @@
                             </td>
                         </tr>
                     `;
-                    if (window.lucide) {
-                        try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                    }
+                    refreshIcons();
                     return;
                 }
 
-                // Agrupa as ações por Card ID para exibir múltiplos registros de forma organizada
                 const groups = new Map();
                 actions.forEach(item => {
                     const key = item.WorkItemId;
@@ -1598,9 +1629,7 @@
                     });
                 });
 
-                if (window.lucide) {
-                    try { lucide.createIcons(); } catch (e) { /* ignore */ }
-                }
+                refreshIcons();
 
                 document.querySelectorAll('.view-card-details-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1620,6 +1649,7 @@
                                 </div>
                             `;
                             detailsModal.style.display = 'flex';
+                            refreshIcons();
                         }
                     });
                 });
@@ -1628,8 +1658,7 @@
             let debounceTimer;
             const debouncedSearch = () => {
                 clearTimeout(debounceTimer);
-                // Aumentado de 250ms para 500ms para aguardar o término da digitação
-                debounceTimer = setTimeout(checkFiltersAndSearch, 500);
+                debounceTimer = setTimeout(checkFiltersAndSearch, 400);
             };
 
             if (repoInput) repoInput.addEventListener('input', debouncedSearch);
@@ -1640,7 +1669,9 @@
             if (clearFiltersBtn) {
                 clearFiltersBtn.addEventListener('click', () => {
                     queryCache.clear();
-                    if (activeAbortController) activeAbortController.abort();
+                    if (activeAbortController) {
+                        try { activeAbortController.abort(); } catch(e) {}
+                    }
                     if (repoInput) repoInput.value = '';
                     if (userInput) userInput.value = '';
                     if (adoNameInput) adoNameInput.value = '';
@@ -1648,8 +1679,11 @@
                     hideErrorBanner();
                     if (repoFormatHint) repoFormatHint.classList.add('hidden');
                     checkFiltersAndSearch();
+                    showToast('Filtros limpos.');
                 });
             }
+
+            checkFiltersAndSearch();
         });
     </script>
 </body>
