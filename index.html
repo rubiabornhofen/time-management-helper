@@ -345,7 +345,7 @@
                     <i data-lucide="search" class="w-6 h-6"></i>
                 </div>
                 <h4 id="search-prompt-title" class="text-sm font-medium text-white mb-1">Preencha os campos para iniciar</h4>
-                <p id="search-prompt-desc" class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu E-mail corporativo nas credenciais.</p>
+                <p id="search-prompt-desc" class="text-xs text-google-subtext max-w-sm">Informe o Usuário GitHub e o Período. Para auditoria de cards do Azure DevOps, certifique-se de configurar seu Nome de exibição no ADO nas credenciais.</p>
             </div>
 
             <!-- Aba 1: Tabela de Pull Requests do GitHub -->
@@ -475,12 +475,12 @@
                     </div>
 
                     <div class="flex flex-col gap-1.5">
-                        <label for="azure-email-input" class="form-label text-white font-medium flex items-center justify-between">
-                            <span>E-mail no Azure DevOps *</span>
+                        <label for="azure-name-input" class="form-label text-white font-medium flex items-center justify-between">
+                            <span>Nome de exibição no ADO *</span>
                             <span class="text-[10px] text-google-primary">(obrigatório p/ Cards)</span>
                         </label>
-                        <input type="email" id="azure-email-input" placeholder="Ex: rubia.bornhofen@empresa.com" class="form-control text-xs">
-                        <span class="text-[11px] text-google-subtext/80">Obrigatório. A consulta aos cards é realizada pela correspondência <strong>estrita e exata</strong> deste e-mail (<code class="font-mono text-google-primary">ChangedBy/UserEmail</code>).</span>
+                        <input type="text" id="azure-name-input" placeholder="Ex: Bornhofen, Rubia ou Rubia Bornhofen" class="form-control text-xs">
+                        <span class="text-[11px] text-google-subtext/80">Obrigatório. O sistema padroniza automaticamente para o formato americano (<code>Sobrenome, Nome</code>).</span>
                     </div>
 
                     <div class="p-3 bg-google-bg/80 rounded-lg border border-google-border/70 text-[11px] text-google-subtext flex flex-col gap-1">
@@ -530,7 +530,7 @@
                 org: '',
                 project: '',
                 pat: '',
-                email: ''
+                userName: ''
             },
             filters: {
                 repo: '',
@@ -541,6 +541,25 @@
             currentPRData: [],
             currentDevOpsData: []
         };
+
+        // Formata e converte qualquer formato de nome para o padrão americano do ADO: "Sobrenome, Nome"
+        function formatAdoAmericanName(input) {
+            if (!input) return '';
+            const trimmed = input.trim();
+            if (trimmed.includes(',')) {
+                const parts = trimmed.split(',');
+                const lastName = parts[0].trim();
+                const firstName = parts.slice(1).join(' ').trim();
+                return firstName ? `${lastName}, ${firstName}` : lastName;
+            }
+            const tokens = trimmed.split(/\s+/);
+            if (tokens.length > 1) {
+                const lastName = tokens[tokens.length - 1];
+                const firstName = tokens.slice(0, -1).join(' ');
+                return `${lastName}, ${firstName}`;
+            }
+            return trimmed;
+        }
 
         // Tipos estritamente permitidos para cards do Azure DevOps
         const ALLOWED_DEVOPS_TYPES = ['Bug', 'User Story', 'Feature', 'Issue'];
@@ -589,7 +608,7 @@
                 WorkItemType: "User Story",
                 State: "Active",
                 ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
-                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
+                ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 4850,
@@ -597,7 +616,7 @@
                 WorkItemType: "Bug",
                 State: "Resolved",
                 ChangedDate: new Date(Date.now() - 2 * 86400000).toISOString(),
-                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
+                ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 5120,
@@ -605,7 +624,7 @@
                 WorkItemType: "Feature",
                 State: "Proposed",
                 ChangedDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
+                ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             },
             {
                 WorkItemId: 5088,
@@ -613,7 +632,7 @@
                 WorkItemType: "Issue",
                 State: "Active",
                 ChangedDate: new Date(Date.now() - 1 * 86400000).toISOString(),
-                ChangedBy: { UserName: "Rubia Bornhofen", UserEmail: "rubia.bornhofen@empresa.com" }
+                ChangedBy: { UserName: "Bornhofen, Rubia", UserEmail: "rubia.bornhofen@empresa.com" }
             }
         ];
 
@@ -656,7 +675,7 @@
             const azureOrgInput = document.getElementById('azure-org-input');
             const azureProjectInput = document.getElementById('azure-project-input');
             const azurePatInput = document.getElementById('azure-pat-input');
-            const azureEmailInput = document.getElementById('azure-email-input');
+            const azureNameInput = document.getElementById('azure-name-input');
 
             const detailsModal = document.getElementById('details-modal');
             const closeDetailsModalBtn = document.getElementById('close-details-modal');
@@ -703,18 +722,19 @@
             }
 
             function updateAzureIndicator() {
-                if (runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.email) {
+                const standardName = formatAdoAmericanName(runtimeState.azure.userName);
+                if (runtimeState.azure.org && runtimeState.azure.project && standardName) {
                     azureConfigIndicator.innerHTML = `
-                        <span class="text-emerald-400 flex items-center gap-1" title="${runtimeState.azure.email}">
+                        <span class="text-emerald-400 flex items-center gap-1" title="${standardName}">
                             <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project} (${runtimeState.azure.email})
+                            Conectado: ${runtimeState.azure.org}/${runtimeState.azure.project} (${standardName})
                         </span>
                     `;
                 } else {
                     azureConfigIndicator.innerHTML = `
                         <button type="button" id="quick-config-azure" class="text-google-primary hover:underline flex items-center gap-1 cursor-pointer">
                             <i data-lucide="settings" class="w-3 h-3"></i>
-                            Configurar Org, Projeto e E-mail
+                            Configurar Org, Projeto e Nome ADO
                         </button>
                     `;
                     const quickBtn = document.getElementById('quick-config-azure');
@@ -729,11 +749,11 @@
             updateAzureIndicator();
 
             openApiModalBtn.addEventListener('click', () => {
-                apiTokenInput.value = runtimeState.apiKey;
-                azureOrgInput.value = runtimeState.azure.org;
-                azureProjectInput.value = runtimeState.azure.project;
-                azurePatInput.value = runtimeState.azure.pat;
-                azureEmailInput.value = runtimeState.azure.email;
+                if (apiTokenInput) apiTokenInput.value = runtimeState.apiKey;
+                if (azureOrgInput) azureOrgInput.value = runtimeState.azure.org;
+                if (azureProjectInput) azureProjectInput.value = runtimeState.azure.project;
+                if (azurePatInput) azurePatInput.value = runtimeState.azure.pat;
+                if (azureNameInput) azureNameInput.value = runtimeState.azure.userName;
 
                 apiModal.style.display = 'flex';
                 if (window.lucide) {
@@ -746,11 +766,11 @@
             });
 
             saveApiModalBtn.addEventListener('click', () => {
-                runtimeState.apiKey = apiTokenInput.value.trim();
-                runtimeState.azure.org = azureOrgInput.value.trim();
-                runtimeState.azure.project = azureProjectInput.value.trim();
-                runtimeState.azure.pat = azurePatInput.value.trim();
-                runtimeState.azure.email = azureEmailInput.value.trim();
+                if (apiTokenInput) runtimeState.apiKey = apiTokenInput.value.trim();
+                if (azureOrgInput) runtimeState.azure.org = azureOrgInput.value.trim();
+                if (azureProjectInput) runtimeState.azure.project = azureProjectInput.value.trim();
+                if (azurePatInput) runtimeState.azure.pat = azurePatInput.value.trim();
+                if (azureNameInput) runtimeState.azure.userName = azureNameInput.value.trim();
 
                 apiModal.style.display = 'none';
                 updateAzureIndicator();
@@ -805,14 +825,16 @@
             }
 
             async function fetchAzureDevOpsCards(periodValue) {
-                const { org, project, pat, email } = runtimeState.azure;
+                const { org, project, pat, userName } = runtimeState.azure;
                 const { startISO, endISO } = getDateRangeForPeriod(periodValue);
 
-                if (!email) {
-                    return { missingEmail: true, items: [] };
+                if (!userName) {
+                    return { missingName: true, items: [] };
                 }
 
-                const targetEmailClean = email.trim().toLowerCase();
+                // Normaliza sempre para o padrão americano do ADO: "Sobrenome, Nome"
+                const targetStandardName = formatAdoAmericanName(userName);
+                const targetClean = targetStandardName.toLowerCase();
 
                 // Fallback com mock caso não haja credenciais do Azure
                 if (!org || !project || !pat) {
@@ -821,27 +843,27 @@
                         const cardDate = new Date(card.ChangedDate);
                         if (isNaN(cardDate.getTime()) || !isDateInPeriod(cardDate, periodValue)) return false;
 
-                        // Correspondência ESTRITA por e-mail
-                        const cardEmail = (card.ChangedBy?.UserEmail || '').trim().toLowerCase();
-                        return cardEmail === targetEmailClean;
+                        // Correspondência com o padrão americano
+                        const cardUserStandard = formatAdoAmericanName(card.ChangedBy?.UserName || '').toLowerCase();
+                        return cardUserStandard === targetClean;
                     });
-                    return { missingEmail: false, items: filteredMock };
+                    return { missingName: false, items: filteredMock };
                 }
 
                 try {
                     // Consulta estritamente os tipos permitidos: User Story, Bug, Feature, Issue
                     const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
-                    const safeEmail = email.replace(/'/g, "''");
+                    const safeName = targetStandardName.replace(/'/g, "''");
                     
                     const filterOData = [
-                        `ChangedBy/UserEmail eq '${safeEmail}'`,
+                        `ChangedBy/UserName eq '${safeName}'`,
                         `ChangedDate ge ${startISO}`,
                         `ChangedDate lt ${endISO}`,
                         `(${typesFilter})`
                     ].join(' and ');
 
                     const selectFields = `WorkItemId,Title,WorkItemType,State,ChangedDate,ChangedBy`;
-                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${filterOData}&$select=${selectFields}&$orderby=ChangedDate desc`;
+                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$orderby=ChangedDate desc`;
 
                     const headers = {
                         'Content-Type': 'application/json',
@@ -850,14 +872,14 @@
 
                     let response = await fetch(odataUrl, { headers });
 
-                    // Se o servidor rejeitar o filtro de e-mail na URL (ex: 400), consulta pelo período/tipos e faz correspondência estrita no client
+                    // Se o servidor rejeitar o filtro de nome com vírgula na URL (ex: 400), consulta pelo período/tipos e faz correspondência no client
                     if (!response.ok && response.status === 400) {
                         const fallbackFilter = [
                             `ChangedDate ge ${startISO}`,
                             `ChangedDate lt ${endISO}`,
                             `(${typesFilter})`
                         ].join(' and ');
-                        const fallbackUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${fallbackFilter}&$select=${selectFields}&$orderby=ChangedDate desc`;
+                        const fallbackUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(fallbackFilter)}&$select=${selectFields}&$orderby=ChangedDate desc`;
                         response = await fetch(fallbackUrl, { headers });
                     }
 
@@ -878,22 +900,23 @@
                                 `Não foi possível encontrar a organização <strong>${org}</strong> ou o projeto <strong>${project}</strong> no Azure DevOps.`
                             );
                         }
-                        return { missingEmail: false, items: [] };
+                        return { missingName: false, items: [] };
                     }
 
                     const jsonResult = await response.json();
                     const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
 
-                    // Correspondência estrita e exata por e-mail (sem aproximações)
+                    // Correspondência estrita considerando o padrão americano "Sobrenome, Nome"
                     const matchedItems = rawItems.filter(item => {
-                        const itemEmail = (item.ChangedBy?.UserEmail || '').trim().toLowerCase();
-                        return itemEmail === targetEmailClean;
+                        const rawUserName = item.ChangedBy?.UserName || '';
+                        const itemStandardName = formatAdoAmericanName(rawUserName).toLowerCase();
+                        return itemStandardName === targetClean || rawUserName.toLowerCase() === targetClean;
                     });
 
-                    return { missingEmail: false, items: matchedItems };
+                    return { missingName: false, items: matchedItems };
                 } catch (err) {
                     showErrorBanner('Azure DevOps: Falha de Conexão', `Não foi possível consultar o Azure DevOps Analytics: ${err.message}. Verifique se o PAT está correto.`);
-                    return { missingEmail: false, items: [] };
+                    return { missingName: false, items: [] };
                 }
             }
 
@@ -1306,7 +1329,7 @@
             }
 
             function executeDevOpsFilter(result) {
-                if (result.missingEmail) {
+                if (result.missingName) {
                     runtimeState.currentDevOpsData = [];
                     renderDevOpsTable([], true);
                     return;
@@ -1333,25 +1356,25 @@
                 renderDevOpsTable(uniqueCards, false);
             }
 
-            function renderDevOpsTable(cards, missingEmail = false) {
+            function renderDevOpsTable(cards, missingName = false) {
                 devopsTableBody.innerHTML = '';
                 badgeDevOpsCount.textContent = `${cards.length}`;
 
-                if (missingEmail) {
+                if (missingName) {
                     devopsTableBody.innerHTML = `
                         <tr>
                             <td colspan="6" class="p-8 text-center">
                                 <div class="max-w-md mx-auto flex flex-col items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-google-surfaceHover flex items-center justify-center text-amber-400 border border-google-border">
-                                        <i data-lucide="mail" class="w-5 h-5"></i>
+                                        <i data-lucide="user" class="w-5 h-5"></i>
                                     </div>
                                     <div class="flex flex-col gap-1.5 w-full">
-                                        <span class="text-sm font-medium text-white">E-mail do Azure DevOps não configurado</span>
+                                        <span class="text-sm font-medium text-white">Nome de exibição no ADO não configurado</span>
                                         <span class="text-xs text-google-subtext leading-relaxed">
-                                            A auditoria de cards do Azure DevOps exige a correspondência exata pelo e-mail da sua conta corporativa.
+                                            A auditoria de cards do Azure DevOps exige o preenchimento do seu Nome de exibição no ADO. A busca utiliza o padrão americano (<code>Sobrenome, Nome</code>).
                                         </span>
                                         <button type="button" class="btn-primary text-xs py-2 mt-2" onclick="document.getElementById('open-api-modal').click()">
-                                            Configurar E-mail do Azure DevOps
+                                            Configurar Nome no Azure DevOps
                                         </button>
                                     </div>
                                 </div>
@@ -1366,7 +1389,7 @@
 
                 if (cards.length === 0) {
                     const currentPeriod = runtimeState.filters.period;
-                    const azureEmail = runtimeState.azure.email;
+                    const standardName = formatAdoAmericanName(runtimeState.azure.userName);
                     const periodLabel = getPeriodLabel(currentPeriod);
                     const isConfigured = runtimeState.azure.org && runtimeState.azure.project && runtimeState.azure.pat;
 
@@ -1383,7 +1406,7 @@
                                             Não há alterações registradas para os filtros aplicados:
                                         </span>
                                         <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs text-left text-google-subtext flex flex-col gap-1">
-                                            <div><span class="text-white font-medium">E-mail:</span> ${azureEmail}</div>
+                                            <div><span class="text-white font-medium">Nome no ADO (padrão):</span> ${standardName}</div>
                                             <div><span class="text-white font-medium">Período:</span> ${periodLabel}</div>
                                             <div><span class="text-white font-medium">Tipos Permitidos:</span> Bug, User Story, Feature, Issue</div>
                                         </div>
@@ -1489,9 +1512,9 @@
                         const card = runtimeState.currentDevOpsData.find(c => c.WorkItemId === id);
                         if (card) {
                             detailsModalTitle.textContent = "Detalhes do Card (Azure DevOps)";
-                            const userLabel = card.ChangedBy?.UserEmail 
-                                ? `${card.ChangedBy.UserName || ''} (${card.ChangedBy.UserEmail})` 
-                                : (runtimeState.azure.email || 'N/A');
+                            const userLabel = card.ChangedBy?.UserName 
+                                ? card.ChangedBy.UserName 
+                                : formatAdoAmericanName(runtimeState.azure.userName);
                             detailsContent.innerHTML = `
                                 <div class="flex flex-col gap-2.5">
                                     <div><span class="text-google-subtext">Card ID:</span> <span class="text-white font-medium font-mono">#${card.WorkItemId}</span></div>
@@ -1501,7 +1524,7 @@
                                     <div><span class="text-google-subtext">Alterado Por:</span> <span class="text-white font-medium">${userLabel}</span></div>
                                     <div><span class="text-google-subtext">Data da Alteração:</span> <span class="text-white font-medium">${new Date(card.ChangedDate).toLocaleString('pt-BR')}</span></div>
                                     <div class="mt-2 p-3 bg-google-bg rounded-lg border border-google-border text-xs leading-relaxed text-google-subtext">
-                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code> com correspondência estrita por e-mail.
+                                        Card capturado via query OData v3.0 do Azure DevOps Analytics na coleção <code>WorkItemRevisions</code> com correspondência pelo padrão americano de nome (<code>ChangedBy/UserName</code>).
                                     </div>
                                 </div>
                             `;
