@@ -6,6 +6,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%231e1f20%22/><path d=%22M16 6 L26 10 L26 17 C26 22 21 26 16 28 C11 26 6 22 6 17 L6 10 Z%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22/><path d=%22M11 16 L14 19 L21 12%22 fill=%22none%22 stroke=%22%238ab4f8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
     <title>Auditoria de Pull Requests e Cards ADO</title>
 
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -323,6 +324,7 @@
             </div>
         </div>
 
+        <!-- Área de Auditoria com Abas -->
         <div class="card-surface overflow-hidden flex-1 flex flex-col min-h-[420px]">
             <!-- Barra de Abas -->
             <div class="flex items-center justify-between border-b border-google-border px-4 bg-google-surface/60 overflow-x-auto">
@@ -539,11 +541,12 @@
     </div>
 
     <script>
-        // Controlador de requisições ativas e cache em memória
+        // Controlador de requisições ativas e cache com TTL em memória
         let activeAbortController = null;
         const queryCache = new Map();
+        const CACHE_TTL_MS = 45000; // 45 segundos de cache
 
-        // Estado estritamente em memória RAM em tempo de execução (zero persistência em storage)
+        // Estado estritamente em memória RAM em tempo de execução
         const runtimeState = {
             apiKey: '', // GitHub Token
             azure: {
@@ -790,6 +793,7 @@
 
                     if (apiModal) apiModal.style.display = 'none';
                     updateAzureIndicator();
+                    queryCache.clear();
                     showToast('Credenciais atualizadas na memória RAM.');
                     checkFiltersAndSearch();
                 });
@@ -815,7 +819,7 @@
                 } else {
                     const days = parseInt(periodValue, 10) || 3;
                     start = new Date(Date.now() - (days * 86400000));
-                    end = new Date(Date.now() + 600000); // tolerância
+                    end = new Date(Date.now() + 600000);
                 }
 
                 return {
@@ -857,21 +861,82 @@
                     return { missingConfig: true, items: [] };
                 }
 
-                const collectedUpdates = [];
+                // Checagem de cache em memória RAM
+                const cacheKey = `ado_${org}_${project}_${adoName}_${periodValue}`;
+                const cached = queryCache.get(cacheKey);
+                if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+                    return { missingConfig: false, missingName: false, items: cached.data };
+                }
+
                 const headers = {
                     'Content-Type': 'application/json',
                     'Authorization': `Basic ${btoa(':' + pat)}`
                 };
 
-                const startDateOnly = startISO.split('T')[0];
+                const collectedUpdates = [];
 
+                // 1. ESTRATÉGIA PRINCIPAL: Analytics OData v3.0 (1 única requisição HTTP para todo o histórico filtrado)
                 try {
+                    const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
+                    const filterOData = [
+                        `ChangedDate ge ${startISO}`,
+                        `(${typesFilter})`
+                    ].join(' and ');
+
+                    const selectFields = `WorkItemId,Title,WorkItemType,State,ChangedDate`;
+                    const expandClause = `ChangedBy($select=UserName,UserEmail)`;
+                    const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$expand=${expandClause}&$orderby=ChangedDate desc&$top=300`;
+
+                    const odataResp = await fetch(odataUrl, { headers, signal: signal || undefined });
+
+                    if (odataResp.ok) {
+                        const jsonResult = await odataResp.json();
+                        const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
+
+                        rawItems.forEach(item => {
+                            if (matchesAdoUser(item.ChangedBy, adoName)) {
+                                collectedUpdates.push({
+                                    id: `odata-${item.WorkItemId}-${item.ChangedDate}`,
+                                    WorkItemId: item.WorkItemId,
+                                    Title: item.Title,
+                                    WorkItemType: item.WorkItemType,
+                                    State: item.State,
+                                    ChangedDate: item.ChangedDate,
+                                    ChangedBy: item.ChangedBy || {}
+                                });
+                            }
+                        });
+
+                        queryCache.set(cacheKey, { timestamp: Date.now(), data: collectedUpdates });
+                        return { missingConfig: false, missingName: false, items: collectedUpdates };
+                    } else if (odataResp.status === 401) {
+                        showErrorBanner(
+                            'Azure DevOps: PAT inválido ou expirado (401)',
+                            'O Personal Access Token (PAT) do Azure DevOps foi recusado. Verifique o token e as permissões de <em>Work Items: Read</em> e <em>Analytics: Read</em>.'
+                        );
+                        return { missingConfig: false, missingName: false, items: [] };
+                    } else if (odataResp.status === 403) {
+                        showErrorBanner(
+                            'Azure DevOps: Acesso Negado (403)',
+                            'Seu usuário não possui permissão para consultar o projeto Azure DevOps especificado.'
+                        );
+                        return { missingConfig: false, missingName: false, items: [] };
+                    }
+                } catch (odataErr) {
+                    if (odataErr.name === 'AbortError') return { missingConfig: false, missingName: false, items: [] };
+                    console.warn('Analytics OData não disponível, recorrendo ao WIQL em lote:', odataErr);
+                }
+
+                // 2. ESTRATÉGIA FALLBACK: WIQL + Batch REST (No máximo 2 requisições, eliminando loops individuais)
+                try {
+                    const startDateOnly = startISO.split('T')[0];
                     const typesWiql = ALLOWED_DEVOPS_TYPES.map(t => `'${t}'`).join(', ');
+                    
                     const wiqlQuery = {
                         query: `SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.ChangedDate], [System.ChangedBy] FROM WorkItems WHERE [System.WorkItemType] IN (${typesWiql}) AND [System.ChangedDate] >= '${startDateOnly}' ORDER BY [System.ChangedDate] DESC`
                     };
 
-                    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/wiql?api-version=7.0&$top=100`;
+                    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/wiql?api-version=7.0&$top=60`;
                     const wiqlResp = await fetch(wiqlUrl, {
                         method: 'POST',
                         headers,
@@ -883,114 +948,43 @@
                         const wiqlData = await wiqlResp.json();
                         const workItemRefs = wiqlData.workItems || [];
 
-                        for (const ref of workItemRefs.slice(0, 35)) {
-                            if (signal && signal.aborted) return { missingConfig: false, missingName: false, items: [] };
-                            try {
-                                const updatesUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems/${ref.id}/updates?api-version=7.0`;
-                                const updatesResp = await fetch(updatesUrl, { headers, signal: signal || undefined });
-                                
-                                if (updatesResp.ok) {
-                                    const updatesData = await updatesResp.json();
-                                    const updateList = updatesData.value || [];
+                        if (workItemRefs.length > 0) {
+                            const distinctIds = workItemRefs.map(w => w.id).slice(0, 50);
+                            const fields = 'System.Id,System.Title,System.WorkItemType,System.State,System.ChangedDate,System.ChangedBy';
+                            const batchUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems?ids=${distinctIds.join(',')}&fields=${fields}&api-version=7.0`;
+                            
+                            const batchResp = await fetch(batchUrl, { headers, signal: signal || undefined });
+                            if (batchResp.ok) {
+                                const batchData = await batchResp.json();
+                                const items = batchData.value || [];
 
-                                    updateList.forEach(up => {
-                                        const updateDate = new Date(up.revisedDate || (up.fields && up.fields['System.ChangedDate'] ? up.fields['System.ChangedDate'].newValue : null));
-                                        if (isNaN(updateDate.getTime()) || !isDateInPeriod(updateDate, periodValue)) return;
+                                items.forEach(it => {
+                                    const f = it.fields || {};
+                                    const changedByObj = f['System.ChangedBy'];
+                                    const changedDate = f['System.ChangedDate'];
 
-                                        const revisedBy = up.revisedBy || (up.fields && up.fields['System.ChangedBy'] ? up.fields['System.ChangedBy'].newValue : null);
-                                        if (matchesAdoUser(revisedBy, adoName)) {
-                                            const stateVal = (up.fields && up.fields['System.State']) ? up.fields['System.State'].newValue : null;
+                                    if (changedDate && isDateInPeriod(new Date(changedDate), periodValue)) {
+                                        if (matchesAdoUser(changedByObj, adoName)) {
                                             collectedUpdates.push({
-                                                id: `${ref.id}-up-${up.id}`,
-                                                WorkItemId: ref.id,
-                                                Title: (up.fields && up.fields['System.Title']) ? up.fields['System.Title'].newValue : `Card #${ref.id}`,
-                                                WorkItemType: (up.fields && up.fields['System.WorkItemType']) ? up.fields['System.WorkItemType'].newValue : 'Item',
-                                                State: stateVal,
-                                                ChangedDate: updateDate.toISOString(),
-                                                ChangedBy: revisedBy || {}
+                                                id: `wiql-${it.id}-${changedDate}`,
+                                                WorkItemId: it.id,
+                                                Title: f['System.Title'] || `Card #${it.id}`,
+                                                WorkItemType: f['System.WorkItemType'] || 'Item',
+                                                State: f['System.State'] || 'Ativo',
+                                                ChangedDate: changedDate,
+                                                ChangedBy: changedByObj || {}
                                             });
                                         }
-                                    });
-                                }
-                            } catch (itemErr) {
-                                if (itemErr.name !== 'AbortError') console.warn(`Falha ao obter updates do card #${ref.id}:`, itemErr);
-                            }
-                        }
-
-                        if (collectedUpdates.length > 0) {
-                            const distinctIds = Array.from(new Set(collectedUpdates.map(u => u.WorkItemId)));
-                            const fields = 'System.Id,System.Title,System.WorkItemType,System.State';
-                            const detailsUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/wit/workitems?ids=${distinctIds.join(',')}&fields=${fields}&api-version=7.0`;
-                            const detailsResp = await fetch(detailsUrl, { headers, signal: signal || undefined });
-                            if (detailsResp.ok) {
-                                const detailsData = await detailsResp.json();
-                                const mapInfo = new Map();
-                                (detailsData.value || []).forEach(it => {
-                                    mapInfo.set(it.id, it.fields);
-                                });
-                                collectedUpdates.forEach(up => {
-                                    const f = mapInfo.get(up.WorkItemId);
-                                    if (f) {
-                                        up.Title = f['System.Title'] || up.Title;
-                                        up.WorkItemType = f['System.WorkItemType'] || up.WorkItemType;
-                                        if (!up.State) up.State = f['System.State'] || 'Ativo';
                                     }
                                 });
                             }
                         }
-                    } else if (wiqlResp.status === 401) {
-                        showErrorBanner(
-                            'Azure DevOps: PAT inválido ou expirado (401)',
-                            'O Personal Access Token (PAT) do Azure DevOps foi recusado. Verifique o token e as permissões de <em>Work Items: Read</em>.'
-                        );
-                    } else if (wiqlResp.status === 403) {
-                        showErrorBanner(
-                            'Azure DevOps: Acesso Negado (403)',
-                            'Seu usuário não possui permissão para consultar o projeto Azure DevOps especificado.'
-                        );
                     }
                 } catch (wiqlErr) {
-                    if (wiqlErr.name !== 'AbortError') console.warn('Consulta WIQL falhou, tentando fallback:', wiqlErr);
+                    if (wiqlErr.name !== 'AbortError') console.warn('WIQL fallback falhou:', wiqlErr);
                 }
 
-                // Fallback OData v3.0 caso WIQL não retorne registros
-                if (collectedUpdates.length === 0) {
-                    try {
-                        const typesFilter = ALLOWED_DEVOPS_TYPES.map(t => `WorkItemType eq '${t}'`).join(' or ');
-                        const filterOData = [
-                            `ChangedDate ge ${startISO}`,
-                            `(${typesFilter})`
-                        ].join(' and ');
-
-                        const selectFields = `WorkItemId,Title,WorkItemType,State,ChangedDate`;
-                        const expandClause = `ChangedBy($select=UserName,UserEmail)`;
-                        const odataUrl = `https://analytics.dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_odata/v3.0-preview/WorkItemRevisions?$filter=${encodeURI(filterOData)}&$select=${selectFields}&$expand=${expandClause}&$orderby=ChangedDate desc&$top=200`;
-
-                        const odataResp = await fetch(odataUrl, { headers, signal: signal || undefined });
-
-                        if (odataResp.ok) {
-                            const jsonResult = await odataResp.json();
-                            const rawItems = Array.isArray(jsonResult.value) ? jsonResult.value : [];
-
-                            rawItems.forEach(item => {
-                                if (matchesAdoUser(item.ChangedBy, adoName)) {
-                                    collectedUpdates.push({
-                                        id: `odata-${item.WorkItemId}-${item.ChangedDate}`,
-                                        WorkItemId: item.WorkItemId,
-                                        Title: item.Title,
-                                        WorkItemType: item.WorkItemType,
-                                        State: item.State,
-                                        ChangedDate: item.ChangedDate,
-                                        ChangedBy: item.ChangedBy || {}
-                                    });
-                                }
-                            });
-                        }
-                    } catch (odataErr) {
-                        if (odataErr.name !== 'AbortError') console.warn('OData Analytics fallback falhou:', odataErr);
-                    }
-                }
-
+                queryCache.set(cacheKey, { timestamp: Date.now(), data: collectedUpdates });
                 return { missingConfig: false, missingName: false, items: collectedUpdates };
             }
 
@@ -1016,9 +1010,9 @@
                     const startDateOnly = startISO.split('T')[0];
 
                     const searchPromises = [
-                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=50&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
-                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=50&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
-                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=30&sort=updated&direction=desc`, { headers, signal: signal || undefined }).catch(() => null)
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+reviewed-by:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=40&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
+                        fetch(`https://api.github.com/search/issues?q=repo:${repoQuery}+type:pr+involves:${encodeURIComponent(cleanUser)}+updated:>=${startDateOnly}&per_page=40&sort=updated`, { headers, signal: signal || undefined }).catch(() => null),
+                        fetch(`https://api.github.com/repos/${repoQuery}/pulls?state=all&per_page=25&sort=updated&direction=desc`, { headers, signal: signal || undefined }).catch(() => null)
                     ];
 
                     const responses = await Promise.all(searchPromises);
@@ -1054,7 +1048,7 @@
                         }
                     }
 
-                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 30);
+                    const candidatePRs = Array.from(pullsMap.values()).slice(0, 25);
 
                     const enrichedList = await Promise.all(candidatePRs.map(async (pr) => {
                         if (signal && signal.aborted) return null;
@@ -1065,7 +1059,7 @@
                         try {
                             const [fullPrResp, reviewsResp] = await Promise.all([
                                 fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}`, { headers, signal: signal || undefined }).catch(() => null),
-                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=30`, { headers, signal: signal || undefined }).catch(() => null)
+                                fetch(`https://api.github.com/repos/${repoQuery}/pulls/${prNumber}/reviews?per_page=25`, { headers, signal: signal || undefined }).catch(() => null)
                             ]);
 
                             if (fullPrResp && fullPrResp.ok) fullPR = await fullPrResp.json();
@@ -1160,11 +1154,8 @@
             }
 
             async function checkFiltersAndSearch() {
-                // Cancela com segurança requisições anteriores
                 if (activeAbortController) {
-                    try {
-                        activeAbortController.abort();
-                    } catch (e) { /* ignore */ }
+                    try { activeAbortController.abort(); } catch (e) { /* ignore */ }
                 }
                 activeAbortController = new AbortController();
                 const signal = activeAbortController.signal;
@@ -1327,7 +1318,6 @@
                     return;
                 }
 
-                // Agrupa por AD# para exibição com rowspan
                 const groups = new Map();
                 data.forEach(item => {
                     const key = item.ad || 'N/A';
@@ -1466,7 +1456,7 @@
                                     <div class="flex flex-col gap-1.5 w-full">
                                         <span class="text-sm font-medium text-white">Nome de exibição no ADO não preenchido</span>
                                         <span class="text-xs text-google-subtext leading-relaxed">
-                                            Preencha o campo <strong>Nome no ADO *</strong> nos filtros acima. O sistema padroniza automaticamente para o padrão americano (<code>Sobrenome, Nome</code>).
+                                            Preencha o campo <strong>Nome no ADO *</strong> nos filtros acima. O sistema padroniza automaticamente para o formato americano (<code>Sobrenome, Nome</code>).
                                         </span>
                                         <button type="button" class="btn-primary text-xs py-2 mt-2 w-fit mx-auto" onclick="document.getElementById('filter-ado-name').focus()">
                                             Preencher Nome no ADO
@@ -1658,7 +1648,7 @@
             let debounceTimer;
             const debouncedSearch = () => {
                 clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(checkFiltersAndSearch, 400);
+                debounceTimer = setTimeout(checkFiltersAndSearch, 600);
             };
 
             if (repoInput) repoInput.addEventListener('input', debouncedSearch);
